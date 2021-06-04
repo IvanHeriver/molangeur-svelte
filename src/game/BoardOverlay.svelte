@@ -31,19 +31,13 @@
     // $: joker_picker = $GameStateStore.jocker_picker
     const cancelJoker = () => {
         let letter = $GameStateStore.jocker_picker_letter
-        console.log('letter id', letter.id)
         GameStateStore.moveLetter(letter.id, letter.board, letter.index)
         GameStateStore.setJokerPicker({}, false)
         askBoardEvaluation()
     }
 
     const validateJoker = (ltr) => {
-        console.log("MAIN-OVERLAY")
-        console.log($GameStateStore)
-        console.log('letter',  $GameStateStore.jocker_picker_letter)
         let letter = $GameStateStore.jocker_picker_letter
-        console.log('letter.id', letter.id)
-        console.log('ltr', ltr)
         GameStateStore.setJoker(letter.id, ltr)
         GameStateStore.setJokerPicker({}, false)
         askBoardEvaluation()
@@ -53,20 +47,16 @@
     $: temp_letters =  []
     $: { 
         temp_letters = $GameGimmickStore.temp_letters
-        console.log(temp_letters)
     }
 
     // dealing with row and column names
     const row_names = Array(15).fill(0).map((e, i)=>i+1)
     const col_names = Object.keys(LETTERS).filter(e=>e!=="_").filter((e, i)=>i<15)
-    console.log(row_names)
-    console.log(col_names)
 
     // dealing with game overlay
     let game_over = false
     $: {
         game_over = $GameStateStore.game_over
-        console.log("GAME_OVER", $GameStateStore.game_over)
     }
     // let game_over = true
 

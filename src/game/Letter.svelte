@@ -21,6 +21,7 @@
     const handleEvent = (e) => {
         if (e.touches) {
             e.preventDefault()
+            document.body.style.overflow = "hidden"
             return e.touches[0]
         } else {
             return e
@@ -50,10 +51,7 @@
         }
     }
     const dragEnd = (e) => {
-        console.log("drag_end")
-        console.log("location", location)
-        console.log("is_joker", is_joker)
-        console.log("$GameStateStore.letters.filter(e=>e.id===letter.id)",  $GameStateStore.letters.filter(e=>e.id===letter.id))
+        document.body.style.overflow = "auto"
         e.preventDefault()
         window.removeEventListener("mousemove", dragMove)
         window.removeEventListener("touchmove", dragMove)
@@ -69,7 +67,6 @@
         if (location.index !== undefined) { // if dropped location is valid
             if (is_joker) { // if the letter is a joker
                 if (location.board && $GameStateStore.letters.filter(e=>e.id===letter.id)[0].joker === "") { // if dropped on board and has no joker letter
-                    console.log("setjoker", $GameStateStore)
                     GameStateStore.setJokerPicker(letter, true) // activate joker picker
                 } else if (!location.board) { // if dropped on rack
                     GameStateStore.setJoker(letter.id, "") // unset the joker letter
@@ -78,7 +75,6 @@
             // in all valid cases, update the letter location
             GameStateStore.moveLetter(letter.id, location.board, location.index) 
             // and ask for a new board ask for a new board evaluation
-            console.log("askBoardEvaluation")
             askBoardEvaluation()
         }
         grab = false;

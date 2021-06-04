@@ -1,21 +1,11 @@
 <script>
-// import Board from "./game/Board.svelte"
-
 import GamePage from "./game/GamePage.svelte"
-// import {GameStateStore} from "./game/GameState"
-// import {onMount} from "svelte"
-
 import {initDictionnary} from "./logic/dico"
 
 let app_ready = false
 initDictionnary(()=>{
-    console.log("Dictionnary Ready")
     app_ready = true
 })
-
-// onMount(()=>{
-    
-// })
 
 </script>
 
@@ -28,14 +18,6 @@ initDictionnary(()=>{
      </div>
 {:else}
 <div class="container">
-    <!-- <div class="header">
-        <div class="menue">
-            
-        </div>
-        <div class="title">
-            <img src="../images/molangeur-h_1.png" alt="">
-        </div>
-    </div> -->
     <div class="header-navigation">
         <div class="navigation-toggle">
             
@@ -66,12 +48,10 @@ initDictionnary(()=>{
         height: 50px;
     }
     .navigation-toggle {
-        /* background-color: rgb(100, 0, 0); */
         height: 50px;
         width: 50px;
     }
     .content {
-        /* background-color: rgb(255, 155, 155); */
         padding: 5px;
     }
 
@@ -80,7 +60,6 @@ initDictionnary(()=>{
             flex-direction: row;
         }
         .header-navigation {
-            /* background-color: rgb(201, 101, 101); */
             width: 50px;
             flex-direction: column;
             min-height: 100vh;
@@ -97,9 +76,6 @@ initDictionnary(()=>{
             min-height: 100vh;
         }
     }
-    /* @media screen and (min-width: 1200px) {
-
-    } */
 
     .loading {
         position: absolute;

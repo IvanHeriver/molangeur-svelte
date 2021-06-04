@@ -22,7 +22,7 @@
     onDestroy(()=>{
         window.removeEventListener("resize", onResize)
     })
-    $: { console.log(width)}
+
     askForNewGame()
 </script>
 

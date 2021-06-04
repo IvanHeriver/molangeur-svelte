@@ -45,13 +45,9 @@ const createGameStateStore = () => {
     }
 
     const setJoker = (id, letter) => {
-        console.log(id)
-        console.log(letter)
         update(state => {
             state.letters = state.letters.map(e=>{
                 if (e.id === id && e.letter === "_") {
-                    console.log(letter)
-                    console.log(e)
                     e.joker = letter
                 }
                 return e
@@ -99,6 +95,12 @@ const createGameStateStore = () => {
             return state
         })
     }
+    const setRound = (round) => {
+        update(state => {
+            state.round = round
+            return state
+        })
+    }
     const setGameOver = () => {
         update(state => {
             state.game_over = true
@@ -121,6 +123,7 @@ const createGameStateStore = () => {
         addNewLetterFlag,
         removeNewLetterFlag,
 
+        setRound,
         setEvaluation,
         setGameOver,
     }

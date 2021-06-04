@@ -29,13 +29,9 @@
         } else {
             dictionnary_valid_word = null
         }
-        console.log(w)
-        console.log(dictionnary_valid_word)
     }
 
-
     const play = () => {
-        console.log($GameStateStore.letters)
         askForWordSubmission($GameStateStore.id)
     }
 
@@ -71,22 +67,16 @@
 
 <style>
     .action {
-        /* background-color: blue; */
         display: flex;
         justify-content: flex-end;
         gap: 0.25em;
         height: 4em;
     }
 
-    /* button {
-        font-size: 1em;
-        padding: 0.5em;
-    } */
     button {
         width: 5em;
         font-size: 1em;
         padding: 0.125em;
-        /* margin: 0; */
     }
 
     input {

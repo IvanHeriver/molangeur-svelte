@@ -7,14 +7,14 @@
 
     $: words_list = []
     $: {
-        // words_list = $GameStateStore.molangeur.current_words
-        words_list = $GameStateStore.molangeur.next_words
-        // words_list.sort((a, b) => b.pts - a.pts)
-        // console.log(words_list)
-        console.log($GameStateStore.molangeur.next_words)
+        words_list = $GameStateStore.molangeur.current_words
+        // console.log($GameStateStore.molangeur.next_words)
     }
     $: selected = -1
-
+    $: first_round = true
+    $: {
+        first_round = $GameStateStore.round === 0
+    }
     const getNiceWordCoord = (index) => {
         const row_names = Array(15).fill(0).map((e, i)=>i+1)
         const col_names = Object.keys(LETTERS).filter(e=>e!=="_").filter((e, i)=>i<15)
@@ -36,9 +36,6 @@
         const word = words_list[i]
         const letters = word.word.split("")
         const indices = getWordIndices(word.index, letters.length, word.dir === "V")
-        console.log(word)
-        console.log(letters)
-        console.log(indices)
         GameGimmickStore.setTempLetters(letters.map((e, i) => {
             return {index: indices[i], letter: e}
         }))
@@ -52,7 +49,7 @@
 </script>
 
 <div class="container">
-    <!-- {#if words_list.length > 0} -->
+    {#if !first_round}
         <div class="title">
                 {`Maître MoLangeur avait trouvé ${words_list.length} mots et positions valides: `}
         </div>
@@ -89,7 +86,7 @@
                 </div>
             {/each}
         </div>
-    <!-- {/if} -->
+    {/if}
 </div>
 
 <style>

@@ -1,6 +1,5 @@
 import * as U from "./utils"
 import {LETTERS, LTRS, POINTS, MAPPING, WORD_POSITIONS, CELLS} from "./constants"
-import { get } from "svelte/store"
 let DICO
 
 export const initDictionnary = (callback) => {
@@ -10,7 +9,6 @@ const makeDictionnary = (callback) => {
     fetch("./ALL_WORDS.txt").then(e=>e.text()).then(e=>{
         const dico = buildDictionnaryObject(e.split("\r\n"))
         DICO = dico
-        console.log(dico)
         callback()
     })
 }
@@ -133,15 +131,7 @@ const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
 }
 
 export const masterMolangeur = (letters, callback) => {
-    // console.time("masterMolangeur")
-
-    window.console.time("initMasterMolangeur")
-
-    // const {words_positions, free_letters, arr_fixed_letters, arr_free_constraints} = initMasterMolangeur(letters)
     const configuration = initMasterMolangeur(letters)
-    window.console.timeEnd("initMasterMolangeur")
-
-    window.console.time("launchMasterMolangeur")
     launchMasterMolangeur(configuration, callback)
 }
 
@@ -158,13 +148,6 @@ const initMasterMolangeur = (letters) => {
     const arr_free_constraints = U.buildBoardIndexArray(free_constraints)
 
     const words_positions = computeWordPositions(arr_fixed_letters, valid_cells, free_letters.length)
-
-    console.log("valid_cells", valid_cells)
-    console.log("free_letters", free_letters)
-    console.log("free_constraints", free_constraints)
-    console.log("arr_free_constraints", arr_free_constraints)
-    console.log("words_positions", words_positions)
-
     
     return {
         words_positions,
@@ -176,70 +159,16 @@ const initMasterMolangeur = (letters) => {
 }
 
 const launchMasterMolangeur = (configuration, callback) => {
-
-    // const words = configuration.words_positions.map(e=>{
-    //     return getPossibleWordsForOneGroup(
-    //         e,
-    //         configuration.free_letters,
-    //         configuration.arr_fixed_letters,
-    //         configuration.arr_free_constraints,
-    //         e.dir === "V"
-    //     )
-    //     }).flat().sort((a, b)=>a.pts<b.pts)
-
-    // callback(words)
-    // let worker = null
-    // if (window.Worker) {
-    //     worker = new Worker("worker_getPossibleWordsForOneGroup.js")
-    // }
     iteratorMasterMolangeur(0, configuration, [], callback)
-    // iteratorMasterMolangeur(0, configuration, [], callback, worker)
-    // position_group, free_letters, arr_fixed_letters, arr_free_constraints, vertical=true
-    
-    // worker.addEventListener("message", (e)=>{
-    //     console.log("worker said")
-    //     console.log(e.data)
-    // })
-
-    // worker.postMessage("Hi there")
 }
 
-// const iteratorMasterMolangeur = (index, configuration, results, callback, worker) => {
 const iteratorMasterMolangeur = (index, configuration, results, callback) => {
-    console.log(`progress: ${Math.round(index / configuration.words_positions.length * 100)}%`)
-    // console.log(`index=${index}`)
     if (index >= configuration.words_positions.length) {
-        // console.log(results.flat().sort((a, b)=>a.pts<b.pts))
-        // duplicates are due to letters that are in double in the player's rack
-
-        console.time("dico_final_formatting")
-        console.log("------------------")
         let words = results.flat().sort((a, b) => b.pts - a.pts)
-        console.log(words)
+        // duplicates are due to letters that are in double in the player's rack
         words = removeDuplicatedWords(words)
-        console.log(words)
-        // words.sort((a, b)=>a.pts<b.pts)
-        // console.log(words)
-        console.timeEnd("dico_final_formatting")
-        // console.time("dico_final_formatting_1")
-        // let res1 = U.removeDuplicatesInObjArray(sorted_words, ["word", "index", "dir"])
-        // console.timeEnd("dico_final_formatting_1")
-        // console.time("dico_final_formatting_2")
-        // let res2 = removeDuplicatedWords(sorted_words)
-        // console.timeEnd("dico_final_formatting_2")
-        // console.log(res1)
-        // console.log(res1)
-        // console.log(res2)
-        
         callback(words)
-        
-
     } else {
-        // worker.postMessage({
-        //     message: `iteration=${index}`,
-        //     group: configuration.words_positions[index],
-        //     configuration: index === 0 ? configuration : null
-        // })
         results = [
             ...results,
             getPossibleWordsForOneGroup(
@@ -259,7 +188,6 @@ const iteratorMasterMolangeur = (index, configuration, results, callback) => {
 
 const removeDuplicatedWords = (arr) => {
     let ids = arr.map(e=>e.word+e.index+e.dir)
-    // let obj_ids = arr.map(e=>e.word+e.index+e.dir)
     let unique = [...(new Set(ids))]
     return arr.filter((e, i) => {
         let u = unique.indexOf(ids[i])
@@ -334,7 +262,6 @@ const computeWordPositions = (board, valid_cell, n_free_letters) => {
     const V = WORD_POSITIONS.V.map(START_CELL=>{
         let selected = START_CELL.filter(filteringFunction)
         if (selected.length === 0) return null
-
         return {
             indices: selected[selected.length - 1],
             dim: {min: selected[0].length, max: selected[selected.length - 1].length},

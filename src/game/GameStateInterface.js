@@ -1,6 +1,5 @@
 import {get} from 'svelte/store'
 import {GameStateStore} from "./GameStore"
-//FIXME: '../logic/*' functions should never be accessed from components, only from here
 import {evaluateBoard, onWordSubmission, newGame} from "../logic/game"
 
 const getEmptyRackSlote = (GSS) => {
@@ -50,63 +49,12 @@ export const resetGame = (id) => {
         },
         players: []
     })
-    // GameStateStore.init({
-    //     letters: [
-    //         {id: "123", letter: "Y", index: 52, board: true, free: false},
-    //         {id: "456", letter: "E", index: 67, board: true, free: false},
-    //         {id: "789", letter: "T", index: 82, board: true, free: false},
-    //         {id: "159", letter: "I", index: 97, board: true, free: false},
-    //         {id: "918", letter: "S", index: 112, board: true, free: false},
-    //         {id: "111", letter: "P", index: 110, board: true, free: false},
-    //         {id: "222", letter: "A", index: 111, board: true, free: false},
-    //         {id: "333", letter: "V", index: 20, board: true, free: false},
-    //         {id: "444", letter: "E", index: 21, board: true, free: false},
-    //         {id: "555", letter: "R", index: 22, board: true, free: false},
-    //         {id: "666", letter: "S", index: 23, board: true, free: false},
-    //     ],
-    //     players:[{score:0}]
-    // })
-    // GameStateStore.init({
-    //     letters: [
-    //         {id: "123", letter: "D", index: 112, board: true, free: false},
-    //         {id: "456", letter: "O", index: 113, board: true, free: false},
-    //         {id: "789", letter: "R", index: 114, board: true, free: false},
-    //         {id: "159", letter: "T", index: 115, board: true, free: false},
-    //         {id: "918", letter: "O", index: 116, board: true, free: false},
-    //         {id: "111", letter: "I", index: 117, board: true, free: false},
-    //         {id: "222", letter: "R", index: 118, board: true, free: false},
-    //         {id: "333", letter: "S", index: 119, board: true, free: false},
-    //     ],
-    //     players:[{score:0}]
-    // })
-    // GameStateStore.init({
-    //     letters: [
-    //         // {id: "333", letter: "V", index: 20, board: true, free: false},
-    //         // {id: "444", letter: "E", index: 21, board: true, free: false},
-    //         {id: "555", letter: "R", index: 22, board: true, free: false},
-    //         // {id: "666", letter: "S", index: 23, board: true, free: false},
-    //         {id: "111", letter: "E", index: 37, board: true, free: false},
-    //         {id: "222", letter: "V", index: 52, board: true, free: false},
-    //         {id: "777", letter: "E", index: 67, board: true, free: false},
-            // {id: "888", letter: "N", index: 82, board: true, free: false},
-            // {id: "999", letter: "A", index: 97, board: true, free: false},
-    //         {id: "123", letter: "I", index: 112, board: true, free: false},
-    //         {id: "456", letter: "S", index: 127, board: true, free: false},
-    //         {id: "sdfgdsfg", letter: "E", index: 23, board: true, free: false},
-    //         {id: "sdsdfds", letter: "V", index: 24, board: true, free: false},
-    //         {id: "eeeee", letter: "E", index: 25, board: true, free: false},
-    //     ],
-    //     players:[{score:0}]
-    // })
 }
 
 export const updateGame = (game) => {
     const GSS = get(GameStateStore)
     const empty_slot = getEmptyRackSlote(GSS)
     const board_letters_indices = game.board.map(e=>e.index)
-    // console.log("GSS", GSS)
-    // console.log("empty_slot", empty_slot)
-    // console.log("game.rack", game.rack.map(e=>e.id+"#"+e.letter+"#"+e.index))
     game.board.map(e=>{
         // verify that it exists 
         if (GSS.letters.filter(l=>l.id===e.id).length !== 1) {
@@ -118,12 +66,8 @@ export const updateGame = (game) => {
     })
     let k = 0
     game.rack.map(e=> {
-        // console.log(">>>")
-        // console.log(e)
-        // console.log(GSS.letters.filter(l=>l.id===e.id))
         // if the letter already exists, 
         if (GSS.letters.filter(l=>l.id===e.id).length === 1) { 
-            // console.log("here")
             // and is on the board on an occupied spot
             // if (e.board && board_letters_indices.indexOf(e.index) !== -1) {
             if (e.board && board_letters_indices.indexOf(e.index) !== -1) {
@@ -134,21 +78,16 @@ export const updateGame = (game) => {
             }
         } else {// if letter's doesn't exist add it
             // add it in the rack
-            // console.log("there")
-            // console.log(k)
-            // console.log(empty_slot[k])
             e.index = empty_slot[k]
             e.board = false
             e.free = true
-            console.log(e)
             GameStateStore.addLetter(e)
             k++
         }
-        // console.log(">k", k)
     })
-    // console.log(game.players)
     GameStateStore.setPlayers(game.players)
     GameStateStore.setEvaluation(false)
+    GameStateStore.setRound(game.round)
 }
 // FIXME: obsolete?
 export const updatePlayer = (players) => {
@@ -177,15 +116,12 @@ export const updateMolangeur = (words=null) => {
     
 }
 
-
-
 export const askForNewGame = () => {
     newGame()
 }
 export const askBoardEvaluation = () => {
     const GSS = get(GameStateStore)
     const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free)
-    console.log("free_letters_on_board", free_letters_on_board)
     const evaluation = evaluateBoard(free_letters_on_board)
     GameStateStore.setEvaluation(evaluation)
 }
@@ -193,11 +129,9 @@ export const askBoardEvaluation = () => {
 export const askForWordSubmission = (id) => {
     const GSS = get(GameStateStore)
     const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free)
-    console.log("free_letters_on_board", free_letters_on_board)
     onWordSubmission(id, free_letters_on_board)
 }
 
 export const gameOver = () => {
-    console.log("game_over")
     GameStateStore.setGameOver()
 }

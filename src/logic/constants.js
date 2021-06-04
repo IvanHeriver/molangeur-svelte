@@ -1,34 +1,3 @@
-console.log(" ############################# CONSTANTS")
-// export const LETTERS = {
-//     _: [0, 2],
-//     // _: [0, 10],
-//     A: [1, 9],
-//     B: [3, 2],
-//     C: [3, 2],
-//     D: [2, 3],
-//     E: [1, 15],
-//     F: [4, 2],
-//     G: [2, 2],
-//     H: [4, 2],
-//     I: [1, 8],
-//     J: [8, 1],
-//     K: [10, 1],
-//     L: [1, 5],
-//     M: [2, 3],
-//     N: [1, 6],
-//     O: [1, 6],
-//     P: [3, 2],
-//     Q: [8, 1],
-//     R: [1, 6],
-//     S: [1, 6],
-//     T: [1, 6],
-//     U: [1, 6],
-//     V: [4, 2],
-//     W: [10, 1],
-//     X: [10, 1],
-//     Y: [10, 1],
-//     Z: [10, 1]
-// }
 export const LETTERS = {
     _: {pts: 0, n: 2, vowel: true, consonant: true},
     // _: {pts: 0, n: 10, vowel: true, consonant: true},
@@ -80,8 +49,6 @@ export const POINTS = Array(15 * 15).fill(0).map((e, i) => {
         word_multiplier: wd * wt
     }
 })
-console.log(POINTS)
-
 
 let COLS_ARRAY = Array(15).fill(0).map((e, i)=>Array(15).fill(0).map((e, j)=>j + (i * 15)))
 export const COLS = COLS_ARRAY
@@ -92,8 +59,6 @@ const computeAllPossibleWordPositions = () => {
     const positions = {V: Array(225), H: Array(225)}
     COLS.map(C => {
         for (let k = 0; k < 15; k++) {
-            // for (let l = 1; l <= Math.min(7, (15 - k)); l++) {
-                // console.log(C[k])
                 positions.V[C[k]] = []
             for (let l = 1; l <= (15 - k); l++) {
                 positions.V[C[k]].push(C.slice(k, k+l))
@@ -103,7 +68,6 @@ const computeAllPossibleWordPositions = () => {
     })
     ROWS.map(R => {
         for (let k = 0; k < 15; k++) {
-            // for (let l = 1; l <= Math.min(7, (15 - k)); l++) {
             positions.H[R[k]] = []
             for (let l = 1; l <= (15 - k); l++) {
                 positions.H[R[k]].push(R.slice(k, k+l))
@@ -142,16 +106,3 @@ const computeIndexRowColMapping = () => {
     }
 }
 export const MAPPING = computeIndexRowColMapping()
-// export const INDEX_FROM_ROW_COL = mapping.
-// export const ROW_COL_FROM_INDEX = mapping.row_col_from_index
-// export const NEIGHBORS_FROM_INDEX = mapping.neighbors_from_index
-
-console.log("COLS", COLS)
-console.log("ROWS", ROWS)
-console.log("MAPPING", MAPPING)
-console.log("WORD_POSITIONS", WORD_POSITIONS)
-// console.log("ROW_COL_FROM_INDEX", ROW_COL_FROM_INDEX)
-// console.log("NEIGHBORS_FROM_INDEX", NEIGHBORS_FROM_INDEX)
-
-
-console.log(" ############################# END CONSTANTS")
