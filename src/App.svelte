@@ -1,0 +1,126 @@
+<script>
+// import Board from "./game/Board.svelte"
+
+import GamePage from "./game/GamePage.svelte"
+// import {GameStateStore} from "./game/GameState"
+// import {onMount} from "svelte"
+
+import {initDictionnary} from "./logic/dico"
+
+let app_ready = false
+initDictionnary(()=>{
+    console.log("Dictionnary Ready")
+    app_ready = true
+})
+
+// onMount(()=>{
+    
+// })
+
+</script>
+
+{#if !app_ready}
+     <div class="loading">
+        <div>
+            <p>Molangeur se prépare. </p>
+            <p>Veuillez patienter quelques instants...</p>
+        </div>
+     </div>
+{:else}
+<div class="container">
+    <!-- <div class="header">
+        <div class="menue">
+            
+        </div>
+        <div class="title">
+            <img src="../images/molangeur-h_1.png" alt="">
+        </div>
+    </div> -->
+    <div class="header-navigation">
+        <div class="navigation-toggle">
+            
+        </div>
+        <img src="../images/molangeur-h_2.png" alt="">
+    </div>
+    <div class="content">
+        <GamePage />
+    </div>
+    
+</div>
+{/if}
+
+
+<style>
+	
+    .container {
+        display: flex;
+        flex-direction: column;
+    }
+    .header-navigation {
+        background-color: rgb(201, 101, 101);
+        height: 50px;
+        display: flex;
+    }
+    .header-navigation > img {
+        width: 200px;
+        height: 50px;
+    }
+    .navigation-toggle {
+        /* background-color: rgb(100, 0, 0); */
+        height: 50px;
+        width: 50px;
+    }
+    .content {
+        /* background-color: rgb(255, 155, 155); */
+        padding: 5px;
+    }
+
+    @media screen and (min-width: 992px) {
+        .container {
+            flex-direction: row;
+        }
+        .header-navigation {
+            /* background-color: rgb(201, 101, 101); */
+            width: 50px;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .header-navigation > img {
+            transform-origin: top left;
+            transform: rotate(-90deg) translateX(-100%);
+        }
+        .content {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+    }
+    /* @media screen and (min-width: 1200px) {
+
+    } */
+
+    .loading {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+
+        background-color: black;
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+
+        z-index: 1000;
+    }
+    .loading > div {
+        color: white;
+        font-size: 2rem;
+        padding: 2rem;
+        padding-bottom: 4rem;
+        text-align: center;
+    }
+</style>
