@@ -1,6 +1,12 @@
 <script>
+
 import GamePage from "./game/GamePage.svelte"
+import WelcomPage from "./welcom/WelcomPage.svelte"
 import {initDictionnary} from "./logic/dico"
+
+// let page = "game"
+let page = "welcom"
+let game_id = null
 
 let app_ready = false
 initDictionnary(()=>{
@@ -22,10 +28,20 @@ initDictionnary(()=>{
         <div class="navigation-toggle">
             
         </div>
-        <img src="../images/molangeur-h_2.png" alt="">
+        <img src="../images/molangeur-h_2.png" alt="" on:click={()=>{
+            page = "welcom"
+        }}>
     </div>
     <div class="content">
-        <GamePage />
+        {#if page === "welcom"}
+            <WelcomPage launchGame={(id)=>{
+                page="game"
+                game_id=id
+                }}/> 
+        {:else if  page === "game"}
+            <GamePage id={game_id}/>
+            <!-- <GamePage id={null}/> -->
+        {/if}
     </div>
     
 </div>
@@ -55,6 +71,9 @@ initDictionnary(()=>{
         padding: 5px;
     }
 
+    img {
+        cursor: pointer;
+    }
     @media screen and (min-width: 992px) {
         .container {
             flex-direction: row;
