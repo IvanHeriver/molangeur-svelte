@@ -1,5 +1,6 @@
 <script>
-    import {askForNewGame} from "./GameStateInterface"
+    export let id;
+    import {setupGame} from "./GameStateInterface"
     import Game from "./Game.svelte"
 
     import MasterMolangeur from "./MasterMolangeur.svelte"
@@ -23,10 +24,10 @@
         window.removeEventListener("resize", onResize)
     })
 
-    askForNewGame()
+    setupGame(id)
 </script>
 
-<div class="container"  style={`--padd: ${padding}px;`}>
+<div class="container" style={`--padd: ${padding}px;`}>
         <div class="info extra" ><Info /></div>
         <div class="game" bind:this={container}><Game width={width}/></div>
         <div class="extra btns"><Buttons /></div>

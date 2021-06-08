@@ -2,10 +2,99 @@ import * as U from "./utils"
 import {LETTERS} from "./constants"
 import * as GSI from "../game/GameStateInterface"
 import * as DICO from "./dico"
+import html2canvas from "html2canvas"
 
 let GAME
 
+// window.addEventListener("beforeunload", ()=> {
+//     // console.log(GAME)
+//     // console.log()
+//     localStorage.setItem("games", JSON.stringify(GAME))
+// })
+// window.addEventListener("load", () => {
+//     console.log(localStorage.getItem("games"))
+// })
+const updateLocalStorage = () => {
+    GAME.update_date = Date.now()
+    let games = JSON.parse(localStorage.getItem("games"))
+    // console.log(games)
+    if (!games) games = {}
+    games[GAME.id] = GAME
+    // games["test2"] = GAME
+    localStorage.setItem("games", JSON.stringify(games))
+    printLocalStorageSize()
+    setTimeout(()=> {
+        let img = document.querySelector("#html-2-canvas")
+        html2canvas(img, {
+            backgroundColor: null, scale: 2,
+        }).then(function(canvas) {
+            games[GAME.id].img = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
+            localStorage.setItem("games", JSON.stringify(games))
+            printLocalStorageSize()
+        });
+    }, 100)
+}
+const printLocalStorageSize = () => {
+    // source: https://stackoverflow.com/a/15720835
+    var _lsTotal = 0,
+    _xLen, _x;
+    for (_x in localStorage) {
+        if (!localStorage.hasOwnProperty(_x)) {
+            continue;
+        }
+        _xLen = ((localStorage[_x].length + _x.length) * 2);
+        _lsTotal += _xLen;
+        console.log(_x.substr(0, 50) + " = " + (_xLen / 1024).toFixed(2) + " KB")
+    };
+    console.log("Total = " + (_lsTotal / 1024).toFixed(2) + " KB");
+
+    
+    // console.log(a)
+}
+
+export const loadGame = (id) => {
+    console.log(id)
+    let loaded_game = JSON.parse(localStorage.getItem("games"))[id]
+    console.log(loaded_game)
+    GAME = loaded_game
+    // GSI.resetGame(GAME.players[0].id)
+    const game = {
+        id: GAME.players[0].id,
+        letters: [...GAME.board, ...GAME.players[0].rack],
+        players: [...GAME.players],
+        // players: GAME.players.map(e=>{
+        //     return {id: e.id, score: e.score, molangeur: e.molangeur}
+        // }),
+        round: GAME.round,
+    }
+    console.log(game)
+    GSI.setGame(game)
+    DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
+        console.log(words)
+        if (words.length !== 0) {
+            GSI.updateMolangeur(words)
+        } else {
+            GSI.gameOver()
+        }
+    })
+}
 export const newGame = () => {
+    // GAME = {
+    //     bag: createBag(),
+    //     board: [
+    //         {id: "111", letter: "A", index: 112, board: true, free: false},
+    //         {id: "222", letter: "L", index: 111, board: true, free: false},
+    //     ],
+    //     players: [{
+    //         id: Math.random().toString().slice(2),
+    //         rack: [],
+    //         score: 0,
+    //         molangeur: 0,
+    //     }],
+    //     round: 0,
+    //     type: "solo-duplicate",
+    //     id: Math.random().toString().slice(2),
+    // }
     GAME = {
         bag: createBag(),
         board: [],
@@ -13,8 +102,13 @@ export const newGame = () => {
             id: Math.random().toString().slice(2),
             rack: [],
             score: 0,
+            molangeur: 0,
         }],
-        round: 0
+        round: 0,
+        type: "solo-duplicate",
+        id: Math.random().toString().slice(2),
+        update_date: Date.now(),
+        create_date: Date.now(),
     }
     GSI.resetGame(GAME.players[0].id)
     const drawing_result = drawLetters(GAME.bag, GAME.players[0].rack, GAME.round)
@@ -24,19 +118,21 @@ export const newGame = () => {
         board: [...GAME.board],
         rack: [...GAME.players[0].rack],
         players: GAME.players.map(e=>{
-            return {id: e.id, score: e.score}
+            return {id: e.id, score: e.score, molangeur: 0}
         }),
         round: GAME.round,
     }
     GSI.updateGame(game)
     // launch master molangeur on the new players game
-    DICO.masterMolangeur(GAME.players[0].rack, (words)=>{
+    DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
+    // DICO.masterMolangeur(GAME.players[0].rack, (words)=>{
         GSI.updateMolangeur(words)
     })
+    updateLocalStorage()
 }
 
 
-export const onWordSubmission = (id, free_letters_on_board) => {
+export const onWordSubmission = (id, free_letters_on_board, max_score) => {
     const evaluation = evaluateBoard(free_letters_on_board)
     if (evaluation && evaluation.is_position_valid && evaluation.is_word_valid) {
         
@@ -59,14 +155,17 @@ export const onWordSubmission = (id, free_letters_on_board) => {
         ]
         // update player's score
         GAME.players[player_index].score += evaluation.total_score
+        GAME.players[player_index].molangeur += max_score
         // update round number
         GAME.round++
+        console.log(GAME)
+        console.log(max_score)
         // update player's game
         const game = {
             board: [...GAME.board],
             rack: [...GAME.players[player_index].rack],
             players: GAME.players.map(e=>{
-                return {id: e.id, score: e.score}
+                return {id: e.id, score: e.score, molangeur: e.molangeur}
             }),
         }
         GSI.updateGame(game)
@@ -80,7 +179,7 @@ export const onWordSubmission = (id, free_letters_on_board) => {
             }
         })
         
-
+        updateLocalStorage()
     }
 }
 

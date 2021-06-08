@@ -1,6 +1,6 @@
 <script>
     import {GameStateStore} from "./GameStore"
-    import {askForNewGame} from "./GameStateInterface"
+    // import {askForNewGame} from "./GameStateInterface"
 
     import Letter from "./Letter.svelte"
     
@@ -72,13 +72,13 @@
         
     // askForNewGame();
 </script>
-<div class="container" bind:this={container} style={`--REF-SIZE: ${width*15/16}px;--S: ${width/16}px;`}>
+<div class="container" id={"html-2-canvas"} bind:this={container} style={`--REF-SIZE: ${width*15/16}px;--S: ${width/16}px;`}>
     <div class="game" bind:this={game}>
         <div class="board">
             <BoardOverlay game={locationFunctions}/>
             {#each board as e, i}
                 <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}>
-                    <!-- <span style='font-size: 0.5em'>{i}</span> -->
+                    <span style='font-size: 0.7em'>{i}</span>
                 </div>
             {/each}
         </div>

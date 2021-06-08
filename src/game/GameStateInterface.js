@@ -1,6 +1,6 @@
 import {get} from 'svelte/store'
 import {GameStateStore} from "./GameStore"
-import {evaluateBoard, onWordSubmission, newGame} from "../logic/game"
+import {evaluateBoard, onWordSubmission, newGame, loadGame} from "../logic/game"
 
 const getEmptyRackSlote = (GSS) => {
     const occupied_slot = GSS.letters.filter(e=>!e.board).map(e=>e.index)
@@ -42,12 +42,28 @@ export const resetGame = (id) => {
         id: id,
         letters: [],
         molangeur: {
-            score: 0,
+            // score: 0,
             next_score: 0,
-            current_words: [],
-            next_words: [],
+            current_words: null,
+            next_words: null,
         },
-        players: []
+        players: [],
+        round: 0
+    })
+}
+export const setGame = (game) => {
+    console.log(game)
+    GameStateStore.init({
+        id: game.id,
+        letters: game.letters,
+        molangeur: {
+            // score: game.molangeur,
+            next_score: 0,
+            current_words: null,
+            next_words: null,
+        },
+        players: game.players,
+        round: game.round
     })
 }
 
@@ -59,6 +75,7 @@ export const updateGame = (game) => {
         // verify that it exists 
         if (GSS.letters.filter(l=>l.id===e.id).length !== 1) {
             throw "A letter that should exist, doesn't..."
+            // GameStateStore.addLetter(e)
         }
         // fix them and move them 
         GameStateStore.fixLetter(e.id)
@@ -98,7 +115,7 @@ export const updateMolangeur = (words=null) => {
     const GSS = get(GameStateStore)
     if (words) {
         GameStateStore.setMolangeur({
-            score:  GSS.molangeur.score,
+            // score:  GSS.molangeur.score,
             next_score: words[0].pts,
             current_words: GSS.molangeur.next_words,
             next_words: words,
@@ -106,7 +123,7 @@ export const updateMolangeur = (words=null) => {
         })
     } else {
         GameStateStore.setMolangeur({
-            score:  GSS.molangeur.score + GSS.molangeur.next_score,
+            // score:  GSS.molangeur.score + GSS.molangeur.next_score,
             next_score: GSS.molangeur.next_score,
             current_words: GSS.molangeur.next_words,
             next_words: GSS.molangeur.next_words,
@@ -119,6 +136,15 @@ export const updateMolangeur = (words=null) => {
 export const askForNewGame = () => {
     newGame()
 }
+
+export const setupGame = (id) => {
+    if (!id) {
+        newGame()
+    } else {
+        loadGame(id)
+    }
+}
+
 export const askBoardEvaluation = () => {
     const GSS = get(GameStateStore)
     const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free)
@@ -129,7 +155,7 @@ export const askBoardEvaluation = () => {
 export const askForWordSubmission = (id) => {
     const GSS = get(GameStateStore)
     const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free)
-    onWordSubmission(id, free_letters_on_board)
+    onWordSubmission(id, free_letters_on_board, GSS.molangeur.next_score)
 }
 
 export const gameOver = () => {
