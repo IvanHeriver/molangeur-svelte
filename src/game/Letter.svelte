@@ -5,6 +5,10 @@
     import {GameStateStore} from "./GameStore"
     import RM from "./RackMovements"
     import LetterLook from "./LetterLook.svelte"
+
+    import {soundDropBoard, soundDropRack} from "./sound"
+
+    // import * as Tone from "tone"
    
     export let game
     export let letter
@@ -76,6 +80,7 @@
             GameStateStore.moveLetter(letter.id, location.board, location.index) 
             // and ask for a new board ask for a new board evaluation
             askBoardEvaluation()
+            location.board ? soundDropBoard() : soundDropRack()
         }
         grab = false;
     }

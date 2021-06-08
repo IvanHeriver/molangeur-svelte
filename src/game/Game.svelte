@@ -1,4 +1,5 @@
 <script>
+    
     import {afterUpdate} from "svelte"
     import html2canvas from "html2canvas"
     import {newGameImagePreviewUpdate} from "./GameStateInterface"
@@ -18,7 +19,7 @@
             GameStateStore.setNeedForNewImagePreview(false)
             // let img = document.querySelector("#html-2-canvas")
             html2canvas(container, {
-                backgroundColor: null, scale: 1, logging: false,
+                backgroundColor: null, logging: false, scrollY: -window.scrollY
             }).then(function(canvas) {
                 let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
                 newGameImagePreviewUpdate($GameStateStore.id, image_data)

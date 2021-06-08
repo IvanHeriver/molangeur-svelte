@@ -60,7 +60,7 @@
     {#if word_submission_possible}
         <button on:click={play}>Soumettre</button>
     {:else}
-        <button on:click={play} disabled>Jouer</button>
+        <button on:click={play} disabled>Soumettre</button>
     {/if}
     
 </div>
