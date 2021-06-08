@@ -1,19 +1,40 @@
 <script>
     import {GameStateStore} from './GameStore'
 
-    let id = $GameStateStore.id
+
+    $: id = null
     $: score = 0
     $: molangeur_score = 0
     $: difference = 0
     $: molangeur_best = 0
+    
     $: {
-        let player = $GameStateStore.players.filter(e=>e.id === id)[0]
-        let molangeur = $GameStateStore.molangeur
-        score = player ? player.score : 0
-        molangeur_score = molangeur.score
-        molangeur_best = molangeur.next_score
-        difference = molangeur_score - score
+        if ($GameStateStore) {
+            id = $GameStateStore.id
+            let player = $GameStateStore.players.filter(e=>e.id === id)[0]
+            let molangeur = $GameStateStore.molangeur
+            console.log(player)
+            console.log(molangeur)
+            score = player ? player.score : 0
+            // molangeur_score = molangeur.score
+            molangeur_score = player ? player.molangeur : 0
+            molangeur_best = molangeur ? molangeur.next_score : 0
+            difference = molangeur_score - score
+        }
     }
+    // $: id = $GameStateStore.id
+    // $: score = 0
+    // $: molangeur_score = 0
+    // $: difference = 0
+    // $: molangeur_best = 0
+    // $: {
+    //     let player = $GameStateStore.players.filter(e=>e.id === id)[0]
+    //     let molangeur = $GameStateStore.molangeur
+    //     score = player ? player.score : 0
+    //     molangeur_score = molangeur.score
+    //     molangeur_best = molangeur.next_score
+    //     difference = molangeur_score - score
+    // }
 </script>
 
 <div class="score">

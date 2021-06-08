@@ -6,24 +6,36 @@
     import LetterLook from "./LetterLook.svelte"
     export let game;
     
-    // dealing with score update
+    
     const score_info_default = {
         valid: false,
         score: 0,
         vertical: false,
     }
     $: score_info = {...score_info_default}
+    $: temp_letters =  []
+    $: game_over = false
+    $: joker_picker = false
     $: {
-        let evaluation  = $GameStateStore.evaluation
-        if (evaluation) {
-            score_info = {
-                valid: evaluation.is_word_valid,
-                score: evaluation.total_score,
-                score_location: game.getBoardXY(evaluation.last_letter_index),
-                vertical: evaluation.full_words[evaluation.main_word_index].vertical
+        if ($GameStateStore) {
+            // dealing with score update
+            let evaluation  = $GameStateStore.evaluation
+            if (evaluation) {
+                score_info = {
+                    valid: evaluation.is_word_valid,
+                    score: evaluation.total_score,
+                    score_location: game.getBoardXY(evaluation.last_letter_index),
+                    vertical: evaluation.full_words[evaluation.main_word_index].vertical
+                }
+            } else {
+                score_info = {...score_info_default}
             }
-        } else {
-            score_info = {...score_info_default}
+            // dealing with joker picker
+            joker_picker = $GameStateStore.jocker_picker
+            // dealing with temporary letters
+            temp_letters = $GameGimmickStore.temp_letters
+            // dealing with game over
+            game_over = $GameStateStore.game_over
         }
     }
 
@@ -44,20 +56,20 @@
     }
 
     // dealing with temp letters
-    $: temp_letters =  []
-    $: { 
-        temp_letters = $GameGimmickStore.temp_letters
-    }
+    
+    // $: { 
+    //     temp_letters = $GameGimmickStore.temp_letters
+    // }
 
     // dealing with row and column names
     const row_names = Array(15).fill(0).map((e, i)=>i+1)
     const col_names = Object.keys(LETTERS).filter(e=>e!=="_").filter((e, i)=>i<15)
 
     // dealing with game overlay
-    let game_over = false
-    $: {
-        game_over = $GameStateStore.game_over
-    }
+    // let game_over = false
+    // $: {
+    //     game_over = $GameStateStore.game_over
+    // }
     // let game_over = true
 
 </script>
@@ -77,7 +89,7 @@
     {/if}
 </div>
 
-{#if $GameStateStore.jocker_picker}
+{#if joker_picker}
     <Joker cancel={cancelJoker} validate={validateJoker}/>
 {/if}
 

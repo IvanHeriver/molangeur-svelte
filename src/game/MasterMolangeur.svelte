@@ -6,14 +6,16 @@
     import {getIndexFromRowCol, getRowColIndex} from "../logic/utils"
 
     $: words_list = []
-    $: {
-        words_list = $GameStateStore.molangeur.current_words
-        // console.log($GameStateStore.molangeur.next_words)
-    }
     $: selected = -1
-    $: first_round = true
+    $: has_something_to_show = true
     $: {
-        first_round = $GameStateStore.round === 0
+        if ($GameStateStore) {
+            console.log($GameStateStore.molangeur)
+            words_list = $GameStateStore.molangeur.current_words
+            // console.log($GameStateStore.molangeur.next_words)
+            // first_round = $GameStateStore.round === 0
+            has_something_to_show = $GameStateStore.molangeur.current_words !== null
+        }
     }
     const getNiceWordCoord = (index) => {
         const row_names = Array(15).fill(0).map((e, i)=>i+1)
@@ -49,7 +51,7 @@
 </script>
 
 <div class="container">
-    {#if !first_round}
+    {#if has_something_to_show}
         <div class="title">
                 {`Maître MoLangeur avait trouvé ${words_list.length} mots et positions valides: `}
         </div>

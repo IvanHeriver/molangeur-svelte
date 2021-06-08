@@ -7,16 +7,17 @@
     let word_submission_possible = false
 
     $: {
-        if (
-            $GameStateStore.evaluation &&
-            $GameStateStore.evaluation.is_position_valid && 
-            $GameStateStore.evaluation.is_word_valid
-        ) {
-            word_submission_possible = true
-        } else {
-            word_submission_possible = false
+        if ($GameStateStore) {
+            if (
+                $GameStateStore.evaluation &&
+                $GameStateStore.evaluation.is_position_valid && 
+                $GameStateStore.evaluation.is_word_valid
+            ) {
+                word_submission_possible = true
+            } else {
+                word_submission_possible = false
+            }
         }
-
     }
     
     let word_to_check
