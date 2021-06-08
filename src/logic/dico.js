@@ -164,7 +164,12 @@ const launchMasterMolangeur = (configuration, callback) => {
 
 const iteratorMasterMolangeur = (index, configuration, results, callback) => {
     if (index >= configuration.words_positions.length) {
-        let words = results.flat().sort((a, b) => b.pts - a.pts)
+        let words = results.flat().sort((a, b) => {
+            if (a.dir === "V" && b.dir === "H") return 1
+            if (a.dir === "V" && b.dir === "V") return 0
+            if (a.dir === "H" && b.dir === "V") return -1
+            return 0
+        }).sort((a, b) => b.pts - a.pts)
         // duplicates are due to letters that are in double in the player's rack
         words = removeDuplicatedWords(words)
         callback(words)
@@ -302,7 +307,14 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
     const n_letter_used = raw_found_words.map(e=>e.n)
     const joker_positions = raw_found_words.map(e=>e.joker)
 
-    let pos_multiplier = position_group.indices.map(e=> POINTS[e])
+    let pos_multiplier = position_group.indices.map(e=>POINTS[e])
+    // console.log("-----------------")
+    // console.log("k=", position_group.indices[0])
+    // console.log(position_group)
+    // console.log(raw_found_words)
+    // console.log(pos_multiplier)
+    // console.log(vertical)
+    // console.log(arr_free_constraints)
     let adjacent_point
     if (vertical) {
         adjacent_point = position_group.indices.map(e=> {
