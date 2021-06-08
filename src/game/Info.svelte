@@ -6,20 +6,22 @@
     $: score = 0
     $: molangeur_score = 0
     $: difference = 0
-    $: molangeur_best = 0
+    $: molangeur_best = ""
+    $: n_remaining_letters = 0
     
     $: {
         if ($GameStateStore) {
-            id = $GameStateStore.id
+            id = $GameStateStore.player_id
             let player = $GameStateStore.players.filter(e=>e.id === id)[0]
             let molangeur = $GameStateStore.molangeur
-            console.log(player)
+            // console.log(player)
             console.log(molangeur)
             score = player ? player.score : 0
             // molangeur_score = molangeur.score
             molangeur_score = player ? player.molangeur : 0
-            molangeur_best = molangeur ? molangeur.next_score : 0
+            molangeur_best = molangeur ? (molangeur.next_score ? molangeur.next_score : "...") : "..."
             difference = molangeur_score - score
+            n_remaining_letters = $GameStateStore.letters_left
         }
     }
     // $: id = $GameStateStore.id
@@ -49,6 +51,9 @@
 </div>
 <div>
     Meilleur score possible: <span class="value">{molangeur_best}</span>
+</div>
+<div>
+    Nombre de lettres restantes: <span class="value">{n_remaining_letters}</span>
 </div>
 </div>
 

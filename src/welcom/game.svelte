@@ -1,8 +1,13 @@
 <script>
     export let game
     export let onclick
+    export let ondelete
 
-    
+    const onDelete = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ondelete(game.id)
+    }
     const getDate = (x) => {
         let d = new Date(x)
         return d.toLocaleDateString()
@@ -18,9 +23,12 @@
         <div class="main">Partie créée le <span class="date">{getDate(game.create_date)}</span>
            à <span class="date">{getTime(game.create_date)}</span></div>
         <div class="secondary">
-           <span class="id">
+           <!-- <span class="id">
                {`(id #${game.id})`}
-           </span>
+           </span> -->
+           <button class="simple" on:click={onDelete}>
+               Supprimer
+           </button>
         </div>
     </div>
     <div class="content">
@@ -38,7 +46,6 @@
 
 <style>
     .game {
-        /* outline: 1px solid black; */
         border: 1px solid grey;
         padding: 0.5em;
         border-radius: 0.25em;
@@ -55,21 +62,17 @@
         align-items: center;
         border-bottom: 1px solid grey;
     }
-        .date {
-            font-weight: bold;
-        }
-        .id {
-            font-size: 0.8em;
-            color: grey;
-        }
-        .content {
-            display: flex;
-            justify-content: flex-start;
-            font-size: 0.9em;
-            padding-top: 0.5em;
-        }
+    .date {
+        font-weight: bold;
+    }
+    .content {
+        display: flex;
+        justify-content: flex-start;
+        font-size: 0.9em;
+        padding-top: 0.5em;
+    }
 
-        .bold {
-            font-weight: bold;
-        }
+    .bold {
+        font-weight: bold;
+    }
 </style>

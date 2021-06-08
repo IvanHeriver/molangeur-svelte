@@ -94,9 +94,6 @@ var app = (function () {
     function set_input_value(input, value) {
         input.value = value == null ? '' : value;
     }
-    function set_style(node, key, value, important) {
-        node.style.setProperty(key, value, important ? 'important' : '');
-    }
     function custom_event(type, detail) {
         const e = document.createEvent('CustomEvent');
         e.initCustomEvent(type, false, false, detail);
@@ -114,6 +111,9 @@ var app = (function () {
     }
     function onMount(fn) {
         get_current_component().$$.on_mount.push(fn);
+    }
+    function afterUpdate(fn) {
+        get_current_component().$$.after_update.push(fn);
     }
     function onDestroy(fn) {
         get_current_component().$$.on_destroy.push(fn);
@@ -570,6 +570,7 @@ var app = (function () {
         };
 
         const setMolangeur = (molangeur) => {
+            console.log(molangeur);
             update(state => {
                 state.molangeur = molangeur;
                 return state;
@@ -593,6 +594,18 @@ var app = (function () {
                 return state
             });
         };
+        const setNeedForNewImagePreview = (yes=true) => {
+            update(state => {
+                state.image_preview_needed = yes;
+                return state
+            });
+        };
+        const setLettersLeft = (left) => {
+            update(state => {
+                state.letters_left = left;
+                return state
+            });
+        };
         return {
             subscribe,
             init: set,
@@ -612,6 +625,8 @@ var app = (function () {
             setRound,
             setEvaluation,
             setGameOver,
+            setNeedForNewImagePreview,
+            setLettersLeft,
         }
 
     };
@@ -1093,7 +1108,12 @@ var app = (function () {
 
     const masterMolangeur = (letters, callback) => {
         const configuration = initMasterMolangeur(letters);
-        launchMasterMolangeur(configuration, callback);
+        const on_done = (words) => {
+            console.timeEnd("molangeur");
+            callback(words);
+        };
+        console.time("molangeur");
+        launchMasterMolangeur(configuration, on_done);
     };
 
 
@@ -1135,6 +1155,7 @@ var app = (function () {
             words = removeDuplicatedWords(words);
             callback(words);
         } else {
+            // console.log(`iteration ${index} out of ${configuration.words_positions.length}`)
             results = [
                 ...results,
                 getPossibleWordsForOneGroup(
@@ -1324,6 +1345,463 @@ var app = (function () {
             }
         });
         return output
+    };
+
+    let DB;
+    const initDatabase = (callback) => {
+        let DB_OPEN = indexedDB.open("db", 1);
+        DB_OPEN.addEventListener("upgradeneeded", ()=>{
+            DB = DB_OPEN.result;
+            if (!DB.objectStoreNames.contains("games")) {
+                DB.createObjectStore("games", {keyPath: 'id'});
+            }
+        });
+        DB_OPEN.addEventListener("error", ()=>{
+            console.error("DB Error: ", DB_OPEN.error);
+        });
+        DB_OPEN.addEventListener("success", () => {
+            DB = DB_OPEN.result;
+            callback();
+        });
+    };
+    const addGame = (game) => {
+        let transaction = DB.transaction("games", "readwrite");
+        let games = transaction.objectStore("games");
+        let request = games.add(game);
+        request.addEventListener("success", () => {
+        });
+        request.addEventListener("error", () => {
+            console.error("DB Error: ", request.error);
+        });
+    };
+    const updateGame = (game) => {
+        let transaction = DB.transaction("games", "readwrite");
+        let games = transaction.objectStore("games");
+        let request = games.put(game);
+        request.addEventListener("success", () => {
+        });
+        request.addEventListener("error", () => {
+            console.error("DB Error: ", request.error);
+        });
+    };
+    const getGame = (id, callback) => {
+        let request = DB.transaction("games", "readonly").objectStore("games").get(id);    
+        request.addEventListener("success", () => {
+            callback(request.result);
+        });
+    };
+    const getAllGames = (callback) => {
+        let request = DB.transaction("games", "readonly").objectStore("games").getAll();    
+        request.addEventListener("success", () => {
+            callback(request.result);
+        });
+    };
+    const deleteGame = (id, callback) => {
+        let transaction = DB.transaction("games", "readwrite");
+        let games = transaction.objectStore("games");
+        let request = games.delete(id);
+        request.addEventListener("success", () => {
+            callback();
+        });
+        request.addEventListener("error", () => {
+            console.error("DB Error: ", request.error);
+        });
+    };
+
+    const loadGame = (id) => {
+        unsetGame();
+        getGame(id, (game) => {
+            const player_id = game.players[0].id;
+            const player_index = game.players.map(e=>e.id).indexOf(player_id);
+            setGame(
+                game.id, player_id, game.round,  game.bag.length,
+                game.players.map(e=>{
+                    return {id: e.id, score: e.score, molangeur: e.molangeur}
+                }), 
+                game.board,
+                game.players[player_index].rack
+            );
+            if (game.gameover) {
+                gameOver();
+            } else {
+                masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                    if (words.length !== 0) {
+                        updateMolangeur(words);
+                    } else {
+                        console.error("should no happen");
+                        gameOver$1(game);
+                    }
+                });
+            }
+        });
+    };
+    const newGame = () => {
+        // initialize game
+        unsetGame();
+        let GAME = {
+            bag: createBag(),
+            board: [],
+            players: [{
+                id: Math.random().toString().slice(2),
+                rack: [],
+                score: 0,
+                molangeur: 0,
+            }],
+            round: 0,
+            type: "solo-duplicate",
+            id: Math.random().toString().slice(2),
+            update_date: Date.now(),
+            create_date: Date.now(),
+        };
+        // draw first letters from bag ...
+        const drawing_result = drawLetters(GAME.bag, GAME.players[0].rack, GAME.round);
+        // ... and add them to the player's rack
+        GAME.players[0].rack = drawing_result.letters;
+        // ... and update the letters' bag
+        GAME.bag = drawing_result.bag;
+        // add the game to IndexedDB
+        addGame(GAME);
+        // set game state store
+        setGame(
+            GAME.id, GAME.players[0].id, GAME.round, GAME.bag.length,
+            GAME.players.map(e=>{
+                return {id: e.id, score: e.score, molangeur: e.molangeur}
+            }), 
+            [],
+            GAME.players[0].rack
+        );
+        // launch master molangeur on the new players game
+        masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
+            updateMolangeur(words);
+        });
+    };
+    const updateGameImagePreview = (id, image_data) => {
+        getGame(id, (game) => {
+            game.img = image_data;
+            updateGame(game);
+        });
+    };
+
+    const submitWord = (id, player_id, free_letters_on_board, molangeur_score) => {
+        getGame(id, (game) => {
+            // retrieve player index:
+            const player_index = game.players.map(e=>e.id).indexOf(player_id);
+            // console.log(player_index)
+            // compute evaluation
+            const evaluation  = evaluateBoard(game.board, free_letters_on_board);
+            if (evaluation && evaluation.is_position_valid && evaluation.is_word_valid) {
+                // add letters to board
+                const new_fixed_letters_on_board = free_letters_on_board.map(e=>{
+                    e.free = false;
+                    return e
+                });
+                game.board = [...game.board, ...new_fixed_letters_on_board];
+                // retrieve remaining letters in rack
+                const rack_remaining_letters = game.players[player_index].rack.filter(e=> {
+                    return free_letters_on_board.filter(l=>l.id===e.id).length === 0
+                });
+                // draw new letter's player
+                const drawing_result  = drawLetters(game.bag, rack_remaining_letters, game.round);
+                // update bag accordingly
+                game.bag = drawing_result.bag;
+                // remove letters from player's rack and add the new ones
+                game.players[player_index].rack = [
+                    ...rack_remaining_letters,
+                    ...drawing_result.letters
+                ];
+                // update player's score
+                game.players[player_index].score += evaluation.total_score;
+                game.players[player_index].molangeur += molangeur_score;
+                // update round number
+                game.round++;
+                // update last updated date
+                game.update_date = Date.now();
+                // update IndexedDB
+                updateGame(game);
+                // update players' game
+                setGame(
+                    game.id, player_id, game.round, game.bag.length,
+                    game.players.map(e=>{
+                        return {id: e.id, score: e.score, molangeur: e.molangeur}
+                    }), 
+                    [...game.board],
+                    [...game.players[player_index].rack]
+                );
+                // launch master molangeur on the new players game
+                updateMolangeur();
+                masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                    if (words.length !== 0) {
+                        updateMolangeur(words);
+                    } else {
+                        gameOver$1(game);
+                    }
+                });
+                
+            }
+
+        });
+    };
+    const gameOver$1 = (game) => {
+        gameOver();
+        game.gameover = true;
+        updateGame(game);
+    };
+    const evaluateBoard = (board, free_letters_on_board) => {
+        // retrieve necessary data
+        const fixed_letters = board;
+        const board_letters = [...fixed_letters, ...free_letters_on_board];
+        // these contains the same data but in "board" dimension
+        // which makes it easier to access in some cases
+        const arr_board_letters = buildBoardIndexArray(board_letters);
+        const arr_fixed_letters = buildBoardIndexArray(fixed_letters);
+
+        // ------------------------------------------------------------
+        // This section deals with the positionning of the new letters
+        const new_letter_on_center_cell = free_letters_on_board.filter(e=>e.index === 112).length === 1;
+        const new_letters_on_same_row = unique(free_letters_on_board.map(e=>getRowIndex(e.index))).length === 1; 
+        const new_letters_on_same_col = unique(free_letters_on_board.map(e=>getColIndex(e.index))).length === 1;
+        const new_letters_with_neighbors = free_letters_on_board.map(e=>{
+            return getNeighborsIndex(e.index).filter(n=>arr_fixed_letters[n] !== null)
+        }).flat().length > 0;
+        let no_interletter_space = false;
+        let start = Math.min(...free_letters_on_board.map(e=>e.index));
+        let end   = Math.max(...free_letters_on_board.map(e=>e.index));
+        if (new_letters_on_same_row) {
+            no_interletter_space = getIndexSeq(start, end, true).filter(e=>arr_board_letters[e]===null).length === 0;
+        } else if (new_letters_on_same_col) {
+            no_interletter_space = getIndexSeq(start, end, false).filter(e=>arr_board_letters[e]===null).length === 0;
+        }
+        const is_position_valid = (new_letter_on_center_cell || new_letters_with_neighbors)
+             && (new_letters_on_same_row || new_letters_on_same_col) && no_interletter_space;
+
+        if (!is_position_valid) return false
+        // ------------------------------------------------------------
+        // This section deals with building, checking the words and 
+        // scoring
+        const words = findWords(board_letters);
+        const new_words = words.filter(w=>w.word.filter(e=>e.free).length > 0);
+        const actual_words = new_words.map(e=>buildWord(e.word));
+
+        if (actual_words.length === 0) return false
+
+        const words_validity = actual_words.map(e=>checkWordValidity(e));
+        const is_word_valid = words_validity.reduce((p, c) => p && c, true);
+        const words_free_letter_count = new_words.map(e=>e.word.filter(l=>l.free).length);
+        const main_word_index = words_free_letter_count.indexOf(Math.max(...words_free_letter_count));
+        const word_scores = new_words.map(e=>computeWordScore(e.word));
+        const total_score = word_scores.reduce((p, c)=>p+c, 0);
+
+        let last_letter_index = new_words[main_word_index].word.slice(-1)[0].index;
+        return {
+            is_position_valid,
+            is_word_valid,
+            words: actual_words,
+            words_validity,
+            full_words: new_words,
+            letters: free_letters_on_board,
+            main_word_index,
+            word_scores,
+            total_score,
+            last_letter_index
+        }
+
+    };
+
+
+    const createBag = () => {
+        const bag_letters = Object.keys(LETTERS).map(e=>e.repeat(LETTERS[e].n).split("")).flat();
+        let bag = bag_letters.map(e=>{
+            return {
+                id: Math.random().toString().slice(2),
+                letter: e,
+                joker: "",
+                board: false, 
+                free: true,
+            }
+        });
+        bag = shuffle(bag);
+        return bag
+    };
+
+    // FIXME: draw letters untile at least two consonants and two vowels
+    //        or one consonant and one vowel, or something like this
+    const drawLetters = (bag, remaining_letters, round) => {
+        const draw = () => {
+            return bag.slice(0, n)
+        };
+        const n = 7 - remaining_letters.length;
+        let letters = draw();
+        let m = round < 15 ? 2 : 1;
+        let n_vowel = remaining_letters.filter(e=>LETTERS[e.letter].vowel).length;
+        let n_consonant = remaining_letters.filter(e=>LETTERS[e.letter].consonant).length;
+        let n_v = letters.filter(e=>LETTERS[e.letter].vowel).length;
+        let n_c = letters.filter(e=>LETTERS[e.letter].consonant).length;
+        let invalid = ((n_vowel + n_v) < m) || ((n_consonant + n_c) < m);
+        let k = 0;
+        while (invalid && k < 10) {
+            bag = shuffle(bag);
+            letters = draw();
+            n_v = letters.filter(e=>LETTERS[e.letter].vowel).length;
+            n_c = letters.filter(e=>LETTERS[e.letter].consonant).length;
+            invalid =  ((n_vowel + n_v) < m) || ((n_consonant + n_c) < m);
+            k++;
+        }
+        return {letters, bag: bag.slice(n)}
+    };
+
+    const findWords = (letters) => {
+        const letters_per_col = buildRowColArray(letters, false);
+        const letters_per_row = buildRowColArray(letters, true);
+
+        const h_words = letters_per_row.map(e=>consecutiveNonNullItems(e).filter(e=>e.length>1).map(e=>{return {vertical: false, word: e}})).flat();
+        const v_words = letters_per_col.map(e=>consecutiveNonNullItems(e).filter(e=>e.length>1).map(e=>{return {vertical: true, word: e}})).flat();
+
+        return [...h_words, ...v_words]
+    };
+
+    const buildWord = (letters) => {
+        return letters.map(e=>{
+            let l = e.letter === "_" ? e.joker : e.letter;
+            return l
+        }).reduce((p, c)=>p+c)
+    };
+
+    const getEmptyRackSlote = (GSS) => {
+        const occupied_slot = GSS.letters.filter(e=>!e.board).map(e=>e.index);
+        return Array(7).fill(0).map((e,i)=>i).filter(e=>occupied_slot.indexOf(e) === -1)
+    };
+
+    const moveAllFreeLettersToRack = () => {
+        const GSS = get_store_value(GameStateStore);
+        const empty_slot = getEmptyRackSlote(GSS);
+        let k = -1;
+        GSS.letters.filter(e=>e.board && e.free).map(e=>{
+            k++;
+            GameStateStore.moveLetter(e.id, false, empty_slot[k]);
+            GameStateStore.setJoker(e.id, "");
+        });
+        GameStateStore.setEvaluation(false);
+    };
+
+    const unsetGame = () => GameStateStore.init(null);
+
+    const setGame = (id, player_id, round, n_letters_left, players, board, rack) => {
+        const GSS = get_store_value(GameStateStore);
+        if (GSS === null) {
+            rack = rack.map((e, i) => {
+                e.index = i;
+                return e
+            });
+            GameStateStore.init({
+                id: id,
+                player_id: player_id,
+                round: round,
+                letters_left: n_letters_left,
+                players: players,
+                letters: [...board, ...rack],
+                molangeur: {next_score: 0, current_words: null, next_words: null},
+            });
+            GameStateStore.setNeedForNewImagePreview();
+        } else {
+            const empty_slot = getEmptyRackSlote(GSS);
+            const board_letters_indices = board.map(e=>e.index);
+            board.map(e=>{
+                // verify that it exists 
+                if (GSS.letters.filter(l=>l.id===e.id).length !== 1) {
+                    throw "A letter that should exist, doesn't..."
+                    // GameStateStore.addLetter(e)
+                }
+                // fix them and move them (FIXME: do I need to move it?)
+                // FIXME: weird stuff happening here... Should match the 
+                // what is comming more closely... and not rely on what's 
+                // already existing so much...
+                GameStateStore.fixLetter(e.id);
+                GameStateStore.moveLetter(e.id, true, e.index);
+            });
+            let k = 0;
+            rack.map(e=> {
+                // if the letter already exists, 
+                if (GSS.letters.filter(l=>l.id===e.id).length === 1) { 
+                    // and is on the board on an occupied spot
+                    // if (e.board && board_letters_indices.indexOf(e.index) !== -1) {
+                    if (e.board && board_letters_indices.indexOf(e.index) !== -1) {
+                        // move it back to the rack
+                        GameStateStore.moveLetter(e.id, false, empty_slot[k]);
+                        GameStateStore.setJoker(e.id, "");
+                        k++;
+                    }
+                } else {// if letter's doesn't exist add it
+                    // add it in the rack
+                    e.index = empty_slot[k];
+                    e.board = false;
+                    e.free = true;
+                    GameStateStore.addLetter(e);
+                    k++;
+                }
+            });
+            GameStateStore.setPlayers(players);
+            GameStateStore.setEvaluation(false);
+            GameStateStore.setRound(round);
+            GameStateStore.setNeedForNewImagePreview();
+            GameStateStore.setLettersLeft(n_letters_left);
+        }
+    };
+
+
+    const updateMolangeur = (words=null) => {
+        const GSS = get_store_value(GameStateStore);
+        if (words) {
+            GameStateStore.setMolangeur({
+                // score:  GSS.molangeur.score,
+                next_score: words[0].pts,
+                current_words: GSS.molangeur.next_words,
+                next_words: words,
+                searching: false, 
+            });
+        } else {
+            GameStateStore.setMolangeur({
+                // score:  GSS.molangeur.score + GSS.molangeur.next_score,
+                next_score: null,
+                current_words: GSS.molangeur.next_words,
+                next_words: GSS.molangeur.next_words,
+                searching: true, 
+            });
+        }
+        
+    };
+
+    const askForNewGame = () => {
+        newGame();
+    };
+
+    const setupGame = (id) => {
+        if (!id) {
+            newGame();
+        } else {
+            loadGame(id);
+        }
+    };
+
+    const askBoardEvaluation = () => {
+        const GSS = get_store_value(GameStateStore);
+        const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free);
+        const fixed_letters_on_board = GSS.letters.filter(e=>e.board && !e.free);
+        const evaluation = evaluateBoard(fixed_letters_on_board, free_letters_on_board);
+        GameStateStore.setEvaluation(evaluation);
+    };
+
+    const askForWordSubmission = (id, player_id) => {
+        const GSS = get_store_value(GameStateStore);
+        const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free);
+        submitWord(id, player_id, free_letters_on_board, GSS.molangeur.next_score);
+    };
+
+    const newGameImagePreviewUpdate = (id, image_data) => {
+        updateGameImagePreview(id, image_data);
+    };
+    const gameOver = () => {
+        GameStateStore.setNeedForNewImagePreview();
+        GameStateStore.setGameOver();
     };
 
     var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
@@ -8401,439 +8879,6 @@ var app = (function () {
     //# sourceMappingURL=html2canvas.js.map
     });
 
-    let GAME;
-
-    // window.addEventListener("beforeunload", ()=> {
-    //     // console.log(GAME)
-    //     // console.log()
-    //     localStorage.setItem("games", JSON.stringify(GAME))
-    // })
-    // window.addEventListener("load", () => {
-    //     console.log(localStorage.getItem("games"))
-    // })
-    const updateLocalStorage = () => {
-        GAME.update_date = Date.now();
-        let games = JSON.parse(localStorage.getItem("games"));
-        // console.log(games)
-        if (!games) games = {};
-        games[GAME.id] = GAME;
-        // games["test2"] = GAME
-        localStorage.setItem("games", JSON.stringify(games));
-        printLocalStorageSize();
-        setTimeout(()=> {
-            let img = document.querySelector("#html-2-canvas");
-            html2canvas(img, {
-                backgroundColor: null, scale: 2,
-            }).then(function(canvas) {
-                games[GAME.id].img = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
-                localStorage.setItem("games", JSON.stringify(games));
-                printLocalStorageSize();
-            });
-        }, 100);
-    };
-    const printLocalStorageSize = () => {
-        // source: https://stackoverflow.com/a/15720835
-        var _lsTotal = 0,
-        _xLen, _x;
-        for (_x in localStorage) {
-            if (!localStorage.hasOwnProperty(_x)) {
-                continue;
-            }
-            _xLen = ((localStorage[_x].length + _x.length) * 2);
-            _lsTotal += _xLen;
-            console.log(_x.substr(0, 50) + " = " + (_xLen / 1024).toFixed(2) + " KB");
-        }    console.log("Total = " + (_lsTotal / 1024).toFixed(2) + " KB");
-
-        
-        // console.log(a)
-    };
-
-    const loadGame = (id) => {
-        console.log(id);
-        let loaded_game = JSON.parse(localStorage.getItem("games"))[id];
-        console.log(loaded_game);
-        GAME = loaded_game;
-        // GSI.resetGame(GAME.players[0].id)
-        const game = {
-            id: GAME.players[0].id,
-            letters: [...GAME.board, ...GAME.players[0].rack],
-            players: [...GAME.players],
-            // players: GAME.players.map(e=>{
-            //     return {id: e.id, score: e.score, molangeur: e.molangeur}
-            // }),
-            round: GAME.round,
-        };
-        console.log(game);
-        setGame(game);
-        masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
-            console.log(words);
-            if (words.length !== 0) {
-                updateMolangeur(words);
-            } else {
-                gameOver();
-            }
-        });
-    };
-    const newGame = () => {
-        // GAME = {
-        //     bag: createBag(),
-        //     board: [
-        //         {id: "111", letter: "A", index: 112, board: true, free: false},
-        //         {id: "222", letter: "L", index: 111, board: true, free: false},
-        //     ],
-        //     players: [{
-        //         id: Math.random().toString().slice(2),
-        //         rack: [],
-        //         score: 0,
-        //         molangeur: 0,
-        //     }],
-        //     round: 0,
-        //     type: "solo-duplicate",
-        //     id: Math.random().toString().slice(2),
-        // }
-        GAME = {
-            bag: createBag(),
-            board: [],
-            players: [{
-                id: Math.random().toString().slice(2),
-                rack: [],
-                score: 0,
-                molangeur: 0,
-            }],
-            round: 0,
-            type: "solo-duplicate",
-            id: Math.random().toString().slice(2),
-            update_date: Date.now(),
-            create_date: Date.now(),
-        };
-        resetGame(GAME.players[0].id);
-        const drawing_result = drawLetters(GAME.bag, GAME.players[0].rack, GAME.round);
-        GAME.players[0].rack = drawing_result.letters;
-        GAME.bag = drawing_result.bag;
-        const game = {
-            board: [...GAME.board],
-            rack: [...GAME.players[0].rack],
-            players: GAME.players.map(e=>{
-                return {id: e.id, score: e.score, molangeur: 0}
-            }),
-            round: GAME.round,
-        };
-        updateGame(game);
-        // launch master molangeur on the new players game
-        masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
-        // DICO.masterMolangeur(GAME.players[0].rack, (words)=>{
-            updateMolangeur(words);
-        });
-        updateLocalStorage();
-    };
-
-
-    const onWordSubmission = (id, free_letters_on_board, max_score) => {
-        const evaluation = evaluateBoard(free_letters_on_board);
-        if (evaluation && evaluation.is_position_valid && evaluation.is_word_valid) {
-            
-            // retrieve player index:
-            const player_index = GAME.players.map(e=>e.id).indexOf(id);
-            // add letters to board
-            GAME.board = [...GAME.board, ...free_letters_on_board];
-            // retrieve remaining letters in rack
-            const rack_remaining_letters = GAME.players[player_index].rack.filter(e=>free_letters_on_board.filter(l=>l.id===e.id).length === 0);
-            // draw new letter's player
-            const drawing_result  = drawLetters(GAME.bag, rack_remaining_letters, GAME.round);
-            
-            GAME.bag = drawing_result.bag;
-            const new_letters = drawing_result.letters;
-            GAME.bag = drawing_result.bag;
-            // remove letters from player's rack and 
-            GAME.players[player_index].rack = [
-                ...rack_remaining_letters,
-                ...new_letters
-            ];
-            // update player's score
-            GAME.players[player_index].score += evaluation.total_score;
-            GAME.players[player_index].molangeur += max_score;
-            // update round number
-            GAME.round++;
-            console.log(GAME);
-            console.log(max_score);
-            // update player's game
-            const game = {
-                board: [...GAME.board],
-                rack: [...GAME.players[player_index].rack],
-                players: GAME.players.map(e=>{
-                    return {id: e.id, score: e.score, molangeur: e.molangeur}
-                }),
-            };
-            updateGame(game);
-            // launch master molangeur on the new players game
-            updateMolangeur(); 
-            masterMolangeur([...GAME.board, ...GAME.players[player_index].rack], (words)=>{
-                if (words.length !== 0) {
-                    updateMolangeur(words);
-                } else {
-                    gameOver();
-                }
-            });
-            
-            updateLocalStorage();
-        }
-    };
-    const evaluateBoard = (free_letters_on_board) => {
-        // retrieve necessary data
-        const fixed_letters = GAME.board;
-        const board_letters = [...fixed_letters, ...free_letters_on_board];
-        // these contains the same data but in "board" dimension
-        // which makes it easier to access in some cases
-        const arr_board_letters = buildBoardIndexArray(board_letters);
-        const arr_fixed_letters = buildBoardIndexArray(fixed_letters);
-
-        // ------------------------------------------------------------
-        // This section deals with the positionning of the new letters
-        const new_letter_on_center_cell = free_letters_on_board.filter(e=>e.index === 112).length === 1;
-        const new_letters_on_same_row = unique(free_letters_on_board.map(e=>getRowIndex(e.index))).length === 1; 
-        const new_letters_on_same_col = unique(free_letters_on_board.map(e=>getColIndex(e.index))).length === 1;
-        const new_letters_with_neighbors = free_letters_on_board.map(e=>{
-            return getNeighborsIndex(e.index).filter(n=>arr_fixed_letters[n] !== null)
-        }).flat().length > 0;
-        let no_interletter_space = false;
-        let start = Math.min(...free_letters_on_board.map(e=>e.index));
-        let end   = Math.max(...free_letters_on_board.map(e=>e.index));
-        if (new_letters_on_same_row) {
-            no_interletter_space = getIndexSeq(start, end, true).filter(e=>arr_board_letters[e]===null).length === 0;
-        } else if (new_letters_on_same_col) {
-            no_interletter_space = getIndexSeq(start, end, false).filter(e=>arr_board_letters[e]===null).length === 0;
-        }
-        const is_position_valid = (new_letter_on_center_cell || new_letters_with_neighbors)
-             && (new_letters_on_same_row || new_letters_on_same_col) && no_interletter_space;
-
-        if (!is_position_valid) return false
-        // ------------------------------------------------------------
-        // This section deals with building, checking the words and 
-        // scoring
-        const words = findWords(board_letters);
-        const new_words = words.filter(w=>w.word.filter(e=>e.free).length > 0);
-        const actual_words = new_words.map(e=>buildWord(e.word));
-
-        if (actual_words.length === 0) return false
-
-        const words_validity = actual_words.map(e=>checkWordValidity(e));
-        const is_word_valid = words_validity.reduce((p, c) => p && c, true);
-        const words_free_letter_count = new_words.map(e=>e.word.filter(l=>l.free).length);
-        const main_word_index = words_free_letter_count.indexOf(Math.max(...words_free_letter_count));
-        const word_scores = new_words.map(e=>computeWordScore(e.word));
-        const total_score = word_scores.reduce((p, c)=>p+c, 0);
-
-        let last_letter_index = new_words[main_word_index].word.slice(-1)[0].index;
-        return {
-            is_position_valid,
-            is_word_valid,
-            words: actual_words,
-            words_validity,
-            full_words: new_words,
-            letters: free_letters_on_board,
-            main_word_index,
-            word_scores,
-            total_score,
-            last_letter_index
-        }
-
-    };
-
-
-    const createBag = () => {
-        const bag_letters = Object.keys(LETTERS).map(e=>e.repeat(LETTERS[e].n).split("")).flat();
-        let bag = bag_letters.map(e=>{
-            return {
-                id: Math.random().toString().slice(2),
-                letter: e,
-                joker: ""
-            }
-        });
-        bag = shuffle(bag);
-        return bag
-    };
-
-    // FIXME: draw letters untile at least two consonants and two vowels
-    //        or one consonant and one vowel, or something like this
-    const drawLetters = (bag, remaining_letters, round) => {
-        const draw = () => {
-            return bag.slice(0, n)
-        };
-        const n = 7 - remaining_letters.length;
-        let letters = draw();
-        let m = round < 15 ? 2 : 1;
-        let n_vowel = remaining_letters.filter(e=>LETTERS[e.letter].vowel).length;
-        let n_consonant = remaining_letters.filter(e=>LETTERS[e.letter].consonant).length;
-        let n_v = letters.filter(e=>LETTERS[e.letter].vowel).length;
-        let n_c = letters.filter(e=>LETTERS[e.letter].consonant).length;
-        let invalid = ((n_vowel + n_v) < m) || ((n_consonant + n_c) < m);
-        let k = 0;
-        while (invalid && k < 10) {
-            bag = shuffle(bag);
-            letters = draw();
-            n_v = letters.filter(e=>LETTERS[e.letter].vowel).length;
-            n_c = letters.filter(e=>LETTERS[e.letter].consonant).length;
-            invalid =  ((n_vowel + n_v) < m) || ((n_consonant + n_c) < m);
-            k++;
-        }
-        return {letters, bag: bag.slice(n)}
-    };
-
-    const findWords = (letters) => {
-        const letters_per_col = buildRowColArray(letters, false);
-        const letters_per_row = buildRowColArray(letters, true);
-
-        const h_words = letters_per_row.map(e=>consecutiveNonNullItems(e).filter(e=>e.length>1).map(e=>{return {vertical: false, word: e}})).flat();
-        const v_words = letters_per_col.map(e=>consecutiveNonNullItems(e).filter(e=>e.length>1).map(e=>{return {vertical: true, word: e}})).flat();
-
-        return [...h_words, ...v_words]
-    };
-
-    const buildWord = (letters) => {
-        return letters.map(e=>{
-            let l = e.letter === "_" ? e.joker : e.letter;
-            return l
-        }).reduce((p, c)=>p+c)
-    };
-
-    const getEmptyRackSlote = (GSS) => {
-        const occupied_slot = GSS.letters.filter(e=>!e.board).map(e=>e.index);
-        return Array(7).fill(0).map((e,i)=>i).filter(e=>occupied_slot.indexOf(e) === -1)
-    };
-
-    const moveAllFreeLettersToRack = () => {
-        const GSS = get_store_value(GameStateStore);
-        const empty_slot = getEmptyRackSlote(GSS);
-        let k = -1;
-        GSS.letters.filter(e=>e.board && e.free).map(e=>{
-            k++;
-            GameStateStore.moveLetter(e.id, false, empty_slot[k]);
-            GameStateStore.setJoker(e.id, "");
-        });
-        GameStateStore.setEvaluation(false);
-    };
-
-    const resetGame = (id) => {
-        GameStateStore.init({
-            id: id,
-            letters: [],
-            molangeur: {
-                // score: 0,
-                next_score: 0,
-                current_words: null,
-                next_words: null,
-            },
-            players: [],
-            round: 0
-        });
-    };
-    const setGame = (game) => {
-        console.log(game);
-        GameStateStore.init({
-            id: game.id,
-            letters: game.letters,
-            molangeur: {
-                // score: game.molangeur,
-                next_score: 0,
-                current_words: null,
-                next_words: null,
-            },
-            players: game.players,
-            round: game.round
-        });
-    };
-
-    const updateGame = (game) => {
-        const GSS = get_store_value(GameStateStore);
-        const empty_slot = getEmptyRackSlote(GSS);
-        const board_letters_indices = game.board.map(e=>e.index);
-        game.board.map(e=>{
-            // verify that it exists 
-            if (GSS.letters.filter(l=>l.id===e.id).length !== 1) {
-                throw "A letter that should exist, doesn't..."
-                // GameStateStore.addLetter(e)
-            }
-            // fix them and move them 
-            GameStateStore.fixLetter(e.id);
-            GameStateStore.moveLetter(e.id, true, e.index);
-        });
-        let k = 0;
-        game.rack.map(e=> {
-            // if the letter already exists, 
-            if (GSS.letters.filter(l=>l.id===e.id).length === 1) { 
-                // and is on the board on an occupied spot
-                // if (e.board && board_letters_indices.indexOf(e.index) !== -1) {
-                if (e.board && board_letters_indices.indexOf(e.index) !== -1) {
-                    // move it back to the rack
-                    GameStateStore.moveLetter(e.id, false, empty_slot[k]);
-                    GameStateStore.setJoker(e.id, "");
-                    k++;
-                }
-            } else {// if letter's doesn't exist add it
-                // add it in the rack
-                e.index = empty_slot[k];
-                e.board = false;
-                e.free = true;
-                GameStateStore.addLetter(e);
-                k++;
-            }
-        });
-        GameStateStore.setPlayers(game.players);
-        GameStateStore.setEvaluation(false);
-        GameStateStore.setRound(game.round);
-    };
-
-    const updateMolangeur = (words=null) => {
-        const GSS = get_store_value(GameStateStore);
-        if (words) {
-            GameStateStore.setMolangeur({
-                // score:  GSS.molangeur.score,
-                next_score: words[0].pts,
-                current_words: GSS.molangeur.next_words,
-                next_words: words,
-                searching: false, 
-            });
-        } else {
-            GameStateStore.setMolangeur({
-                // score:  GSS.molangeur.score + GSS.molangeur.next_score,
-                next_score: GSS.molangeur.next_score,
-                current_words: GSS.molangeur.next_words,
-                next_words: GSS.molangeur.next_words,
-                searching: true, 
-            });
-        }
-        
-    };
-
-    const askForNewGame = () => {
-        newGame();
-    };
-
-    const setupGame = (id) => {
-        if (!id) {
-            newGame();
-        } else {
-            loadGame(id);
-        }
-    };
-
-    const askBoardEvaluation = () => {
-        const GSS = get_store_value(GameStateStore);
-        const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free);
-        const evaluation = evaluateBoard(free_letters_on_board);
-        GameStateStore.setEvaluation(evaluation);
-    };
-
-    const askForWordSubmission = (id) => {
-        const GSS = get_store_value(GameStateStore);
-        const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free);
-        onWordSubmission(id, free_letters_on_board, GSS.molangeur.next_score);
-    };
-
-    const gameOver = () => {
-        GameStateStore.setGameOver();
-    };
-
     let rack = Array(7).fill(null);
     let rack_tmp;
     let current;
@@ -9953,7 +9998,7 @@ var app = (function () {
 
     			attr_dev(div, "class", div_class_value = "" + (null_to_empty(/*score_info*/ ctx[1].vertical
     			? "score vertical"
-    			: "score") + " svelte-1mcix80"));
+    			: "score") + " svelte-1parq7"));
 
     			attr_dev(div, "style", div_style_value = `--x:${/*score_info*/ ctx[1].score_location.x}; --y:${/*score_info*/ ctx[1].score_location.y}`);
     			add_location(div, file$8, 78, 8, 2587);
@@ -9968,7 +10013,7 @@ var app = (function () {
 
     			if (dirty & /*score_info*/ 2 && div_class_value !== (div_class_value = "" + (null_to_empty(/*score_info*/ ctx[1].vertical
     			? "score vertical"
-    			: "score") + " svelte-1mcix80"))) {
+    			: "score") + " svelte-1parq7"))) {
     				attr_dev(div, "class", div_class_value);
     			}
 
@@ -9999,8 +10044,8 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			div = element("div");
-    			div.textContent = "Partie terminé";
-    			attr_dev(div, "class", "gameover svelte-1mcix80");
+    			div.textContent = "Partie terminée!";
+    			attr_dev(div, "class", "gameover svelte-1parq7");
     			add_location(div, file$8, 85, 8, 2865);
     		},
     		m: function mount(target, anchor) {
@@ -10134,9 +10179,9 @@ var app = (function () {
     		c: function create() {
     			div = element("div");
     			t = text(t_value);
-    			attr_dev(div, "class", "row-col-name svelte-1mcix80");
+    			attr_dev(div, "class", "row-col-name svelte-1parq7");
     			attr_dev(div, "style", `--x:${-1.125}; --y:${/*i*/ ctx[14] + 0.25};text-align: right;`);
-    			add_location(div, file$8, 106, 5, 3338);
+    			add_location(div, file$8, 106, 5, 3340);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -10171,9 +10216,9 @@ var app = (function () {
     			div = element("div");
     			t0 = text(t0_value);
     			t1 = space();
-    			attr_dev(div, "class", "row-col-name svelte-1mcix80");
+    			attr_dev(div, "class", "row-col-name svelte-1parq7");
     			attr_dev(div, "style", `--x:${/*i*/ ctx[14]}; --y:${-0.5};text-align: center;`);
-    			add_location(div, file$8, 111, 5, 3494);
+    			add_location(div, file$8, 111, 5, 3496);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -10264,7 +10309,7 @@ var app = (function () {
     			}
 
     			each2_anchor = empty();
-    			attr_dev(div, "class", "overlay svelte-1mcix80");
+    			attr_dev(div, "class", "overlay svelte-1parq7");
     			add_location(div, file$8, 76, 0, 2527);
     		},
     		l: function claim(nodes) {
@@ -10669,12 +10714,9 @@ var app = (function () {
     	return child_ctx;
     }
 
-    // (79:12) {#each board as e, i}
+    // (94:12) {#each board as e, i}
     function create_each_block_4(ctx) {
     	let div;
-    	let span;
-    	let t0;
-    	let t1;
     	let each_value_4 = /*each_value_4*/ ctx[27];
     	let i = /*i*/ ctx[26];
     	const assign_div = () => /*div_binding*/ ctx[9](div, each_value_4, i);
@@ -10683,21 +10725,13 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			div = element("div");
-    			span = element("span");
-    			t0 = text(/*i*/ ctx[26]);
-    			t1 = space();
-    			set_style(span, "font-size", "0.7em");
-    			add_location(span, file$7, 80, 20, 2677);
     			attr_dev(div, "class", "board-cell svelte-d5xu96");
     			attr_dev(div, "style", `--x:${/*getBoardXY*/ ctx[6](/*i*/ ctx[26]).x};--y:${/*getBoardXY*/ ctx[6](/*i*/ ctx[26]).y};`);
     			attr_dev(div, "cid", /*i*/ ctx[26]);
-    			add_location(div, file$7, 79, 16, 2552);
+    			add_location(div, file$7, 94, 16, 3214);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
-    			append_dev(div, span);
-    			append_dev(span, t0);
-    			append_dev(div, t1);
     			assign_div();
     		},
     		p: function update(new_ctx, dirty) {
@@ -10720,14 +10754,14 @@ var app = (function () {
     		block,
     		id: create_each_block_4.name,
     		type: "each",
-    		source: "(79:12) {#each board as e, i}",
+    		source: "(94:12) {#each board as e, i}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (86:12) {#each rack as e, i}
+    // (101:12) {#each rack as e, i}
     function create_each_block_3(ctx) {
     	let div1;
     	let div0;
@@ -10743,11 +10777,11 @@ var app = (function () {
     			div0 = element("div");
     			t = space();
     			attr_dev(div0, "class", "rack-decoration svelte-d5xu96");
-    			add_location(div0, file$7, 87, 16, 2953);
+    			add_location(div0, file$7, 102, 16, 3624);
     			attr_dev(div1, "class", "rack-cell svelte-d5xu96");
     			attr_dev(div1, "style", `--pos:${/*getRackPos*/ ctx[7](/*i*/ ctx[26])};`);
     			attr_dev(div1, "cid", /*i*/ ctx[26]);
-    			add_location(div1, file$7, 86, 12, 2855);
+    			add_location(div1, file$7, 101, 12, 3526);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div1, anchor);
@@ -10775,14 +10809,14 @@ var app = (function () {
     		block,
     		id: create_each_block_3.name,
     		type: "each",
-    		source: "(86:12) {#each rack as e, i}",
+    		source: "(101:12) {#each rack as e, i}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (94:8) {#if $GameStateStore}
+    // (109:8) {#if $GameStateStore}
     function create_if_block$3(ctx) {
     	let div0;
     	let t0;
@@ -10849,11 +10883,11 @@ var app = (function () {
     			}
 
     			attr_dev(div0, "class", "board-letters-free");
-    			add_location(div0, file$7, 94, 12, 3110);
+    			add_location(div0, file$7, 109, 12, 3781);
     			attr_dev(div1, "class", "board-letters-fixed");
-    			add_location(div1, file$7, 99, 12, 3355);
+    			add_location(div1, file$7, 114, 12, 4026);
     			attr_dev(div2, "class", "rack-letters");
-    			add_location(div2, file$7, 104, 12, 3602);
+    			add_location(div2, file$7, 119, 12, 4273);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -11017,14 +11051,14 @@ var app = (function () {
     		block,
     		id: create_if_block$3.name,
     		type: "if",
-    		source: "(94:8) {#if $GameStateStore}",
+    		source: "(109:8) {#if $GameStateStore}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (96:16) {#each $GameStateStore.letters.filter(e=>e.board && e.free) as ltr}
+    // (111:16) {#each $GameStateStore.letters.filter(e=>e.board && e.free) as ltr}
     function create_each_block_2(ctx) {
     	let letter;
     	let current;
@@ -11068,14 +11102,14 @@ var app = (function () {
     		block,
     		id: create_each_block_2.name,
     		type: "each",
-    		source: "(96:16) {#each $GameStateStore.letters.filter(e=>e.board && e.free) as ltr}",
+    		source: "(111:16) {#each $GameStateStore.letters.filter(e=>e.board && e.free) as ltr}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (101:16) {#each $GameStateStore.letters.filter(e=>e.board && !e.free) as ltr}
+    // (116:16) {#each $GameStateStore.letters.filter(e=>e.board && !e.free) as ltr}
     function create_each_block_1(ctx) {
     	let letter;
     	let current;
@@ -11119,14 +11153,14 @@ var app = (function () {
     		block,
     		id: create_each_block_1.name,
     		type: "each",
-    		source: "(101:16) {#each $GameStateStore.letters.filter(e=>e.board && !e.free) as ltr}",
+    		source: "(116:16) {#each $GameStateStore.letters.filter(e=>e.board && !e.free) as ltr}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (106:16) {#each $GameStateStore.letters.filter(e=>!e.board) as ltr}
+    // (121:16) {#each $GameStateStore.letters.filter(e=>!e.board) as ltr}
     function create_each_block$2(ctx) {
     	let letter;
     	let current;
@@ -11170,7 +11204,7 @@ var app = (function () {
     		block,
     		id: create_each_block$2.name,
     		type: "each",
-    		source: "(106:16) {#each $GameStateStore.letters.filter(e=>!e.board) as ltr}",
+    		source: "(121:16) {#each $GameStateStore.letters.filter(e=>!e.board) as ltr}",
     		ctx
     	});
 
@@ -11234,15 +11268,14 @@ var app = (function () {
     			t2 = space();
     			if (if_block) if_block.c();
     			attr_dev(div0, "class", "board svelte-d5xu96");
-    			add_location(div0, file$7, 76, 8, 2426);
+    			add_location(div0, file$7, 91, 8, 3088);
     			attr_dev(div1, "class", "rack svelte-d5xu96");
-    			add_location(div1, file$7, 84, 8, 2789);
+    			add_location(div1, file$7, 99, 8, 3460);
     			attr_dev(div2, "class", "game svelte-d5xu96");
-    			add_location(div2, file$7, 75, 4, 2381);
+    			add_location(div2, file$7, 90, 4, 3043);
     			attr_dev(div3, "class", "container svelte-d5xu96");
-    			attr_dev(div3, "id", "html-2-canvas");
     			attr_dev(div3, "style", div3_style_value = `--REF-SIZE: ${/*width*/ ctx[0] * 15 / 16}px;--S: ${/*width*/ ctx[0] / 16}px;`);
-    			add_location(div3, file$7, 74, 0, 2250);
+    			add_location(div3, file$7, 89, 0, 2933);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -11394,6 +11427,23 @@ var app = (function () {
     	validate_slots("Game", slots, []);
     	let { width } = $$props;
     	let game, container;
+
+    	afterUpdate(() => {
+    		if ($GameStateStore && $GameStateStore.image_preview_needed) {
+    			GameStateStore.setNeedForNewImagePreview(false);
+
+    			// let img = document.querySelector("#html-2-canvas")
+    			html2canvas(container, {
+    				backgroundColor: null,
+    				scale: 1,
+    				logging: false
+    			}).then(function (canvas) {
+    				let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+    				newGameImagePreviewUpdate($GameStateStore.id, image_data);
+    			});
+    		}
+    	});
+
     	let board = Array(BOARD_DIM * BOARD_DIM).fill(0);
     	let rack = Array(RACK_DIM).fill(0);
 
@@ -11500,6 +11550,9 @@ var app = (function () {
     	};
 
     	$$self.$capture_state = () => ({
+    		afterUpdate,
+    		html2canvas,
+    		newGameImagePreviewUpdate,
     		GameStateStore,
     		Letter,
     		BoardOverlay,
@@ -11580,7 +11633,7 @@ var app = (function () {
 
     /* src\game\MasterMolangeur.svelte generated by Svelte v3.38.2 */
 
-    const { Object: Object_1$1, console: console_1$2 } = globals;
+    const { Object: Object_1$1, console: console_1$1 } = globals;
     const file$6 = "src\\game\\MasterMolangeur.svelte";
 
     function get_each_context$1(ctx, list, i) {
@@ -11962,7 +12015,7 @@ var app = (function () {
     	const writable_props = [];
 
     	Object_1$1.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1$2.warn(`<MasterMolangeur> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1$1.warn(`<MasterMolangeur> was created with unknown prop '${key}'`);
     	});
 
     	const mouseover_handler = i => showWord(i);
@@ -11998,10 +12051,11 @@ var app = (function () {
     		if ($$self.$$.dirty & /*$GameStateStore*/ 64) {
     			{
     				if ($GameStateStore) {
-    					console.log($GameStateStore.molangeur);
+    					// console.log($GameStateStore.molangeur)
     					$$invalidate(0, words_list = $GameStateStore.molangeur.current_words);
 
-    					// console.log($GameStateStore.molangeur.next_words)
+    					console.log($GameStateStore.molangeur.next_words);
+
     					// first_round = $GameStateStore.round === 0
     					$$invalidate(2, has_something_to_show = $GameStateStore.molangeur.current_words !== null);
     				}
@@ -12053,7 +12107,7 @@ var app = (function () {
     			div = element("div");
     			div.textContent = "Mot non valide";
     			attr_dev(div, "class", "result invalid svelte-57msys");
-    			add_location(div, file$5, 50, 12, 1671);
+    			add_location(div, file$5, 50, 12, 1698);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -12083,7 +12137,7 @@ var app = (function () {
     			div = element("div");
     			div.textContent = "Mot valide";
     			attr_dev(div, "class", "result valid svelte-57msys");
-    			add_location(div, file$5, 46, 12, 1566);
+    			add_location(div, file$5, 46, 12, 1593);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -12144,7 +12198,7 @@ var app = (function () {
     			button.textContent = "Jouer";
     			button.disabled = true;
     			attr_dev(button, "class", "svelte-57msys");
-    			add_location(button, file$5, 62, 8, 2042);
+    			add_location(button, file$5, 62, 8, 2081);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -12182,9 +12236,9 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			button = element("button");
-    			button.textContent = "Jouer";
+    			button.textContent = "Soumettre";
     			attr_dev(button, "class", "svelte-57msys");
-    			add_location(button, file$5, 60, 8, 1981);
+    			add_location(button, file$5, 60, 8, 2016);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
@@ -12219,10 +12273,8 @@ var app = (function () {
     	let input;
     	let t0;
     	let t1;
-    	let button0;
+    	let button;
     	let t3;
-    	let button1;
-    	let t5;
     	let mounted;
     	let dispose;
 
@@ -12251,26 +12303,21 @@ var app = (function () {
     			t0 = space();
     			if_block0.c();
     			t1 = space();
-    			button0 = element("button");
-    			button0.textContent = "Nouvelle partie";
+    			button = element("button");
+    			button.textContent = "Ramener les lettres";
     			t3 = space();
-    			button1 = element("button");
-    			button1.textContent = "Ramener les lettres";
-    			t5 = space();
     			if_block1.c();
     			attr_dev(input, "type", "text");
     			attr_dev(input, "placeholder", "Dictionnaire");
     			attr_dev(input, "onkeypress", "return (event.key.length === 1 && /[A-Za-zéèëêîïûôâàç]/.test(event.key))");
     			attr_dev(input, "class", "svelte-57msys");
-    			add_location(input, file$5, 42, 8, 1265);
+    			add_location(input, file$5, 42, 8, 1292);
     			attr_dev(div0, "class", "dico");
-    			add_location(div0, file$5, 41, 4, 1237);
-    			attr_dev(button0, "class", "svelte-57msys");
-    			add_location(button0, file$5, 57, 4, 1800);
-    			attr_dev(button1, "class", "svelte-57msys");
-    			add_location(button1, file$5, 58, 4, 1863);
+    			add_location(div0, file$5, 41, 4, 1264);
+    			attr_dev(button, "class", "svelte-57msys");
+    			add_location(button, file$5, 58, 4, 1898);
     			attr_dev(div1, "class", "action svelte-57msys");
-    			add_location(div1, file$5, 40, 0, 1210);
+    			add_location(div1, file$5, 40, 0, 1237);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -12283,18 +12330,15 @@ var app = (function () {
     			append_dev(div0, t0);
     			if_block0.m(div0, null);
     			append_dev(div1, t1);
-    			append_dev(div1, button0);
+    			append_dev(div1, button);
     			append_dev(div1, t3);
-    			append_dev(div1, button1);
-    			append_dev(div1, t5);
     			if_block1.m(div1, null);
 
     			if (!mounted) {
     				dispose = [
     					listen_dev(input, "input", /*input_input_handler*/ ctx[6]),
     					listen_dev(input, "keyup", /*checkWord*/ ctx[3], false, false, false),
-    					listen_dev(button0, "click", askForNewGame, false, false, false),
-    					listen_dev(button1, "click", moveAllFreeLettersToRack, false, false, false)
+    					listen_dev(button, "click", moveAllFreeLettersToRack, false, false, false)
     				];
 
     				mounted = true;
@@ -12373,7 +12417,7 @@ var app = (function () {
     	};
 
     	const play = () => {
-    		askForWordSubmission($GameStateStore.id);
+    		askForWordSubmission($GameStateStore.id, $GameStateStore.player_id);
     	};
 
     	const writable_props = [];
@@ -12452,11 +12496,11 @@ var app = (function () {
 
     /* src\game\Info.svelte generated by Svelte v3.38.2 */
 
-    const { console: console_1$1 } = globals;
+    const { console: console_1 } = globals;
     const file$4 = "src\\game\\Info.svelte";
 
     function create_fragment$4(ctx) {
-    	let div4;
+    	let div5;
     	let div0;
     	let t0;
     	let span0;
@@ -12476,10 +12520,15 @@ var app = (function () {
     	let t9;
     	let span3;
     	let t10;
+    	let t11;
+    	let div4;
+    	let t12;
+    	let span4;
+    	let t13;
 
     	const block = {
     		c: function create() {
-    			div4 = element("div");
+    			div5 = element("div");
     			div0 = element("div");
     			t0 = text("Score: ");
     			span0 = element("span");
@@ -12499,56 +12548,70 @@ var app = (function () {
     			t9 = text("Meilleur score possible: ");
     			span3 = element("span");
     			t10 = text(/*molangeur_best*/ ctx[3]);
+    			t11 = space();
+    			div4 = element("div");
+    			t12 = text("Nombre de lettres restantes: ");
+    			span4 = element("span");
+    			t13 = text(/*n_remaining_letters*/ ctx[4]);
     			attr_dev(span0, "class", "value svelte-3utdym");
-    			add_location(span0, file$4, 41, 11, 1292);
-    			add_location(div0, file$4, 40, 0, 1274);
+    			add_location(span0, file$4, 43, 11, 1436);
+    			add_location(div0, file$4, 42, 0, 1418);
     			attr_dev(span1, "class", "value svelte-3utdym");
-    			add_location(span1, file$4, 44, 31, 1374);
-    			add_location(div1, file$4, 43, 0, 1336);
+    			add_location(span1, file$4, 46, 31, 1518);
+    			add_location(div1, file$4, 45, 0, 1480);
     			attr_dev(span2, "class", "value svelte-3utdym");
-    			add_location(span2, file$4, 47, 38, 1473);
-    			add_location(div2, file$4, 46, 0, 1428);
+    			add_location(span2, file$4, 49, 38, 1617);
+    			add_location(div2, file$4, 48, 0, 1572);
     			attr_dev(span3, "class", "value svelte-3utdym");
-    			add_location(span3, file$4, 50, 29, 1558);
-    			add_location(div3, file$4, 49, 0, 1522);
-    			attr_dev(div4, "class", "score svelte-3utdym");
-    			add_location(div4, file$4, 39, 0, 1253);
+    			add_location(span3, file$4, 52, 29, 1702);
+    			add_location(div3, file$4, 51, 0, 1666);
+    			attr_dev(span4, "class", "value svelte-3utdym");
+    			add_location(span4, file$4, 55, 33, 1795);
+    			add_location(div4, file$4, 54, 0, 1755);
+    			attr_dev(div5, "class", "score svelte-3utdym");
+    			add_location(div5, file$4, 41, 0, 1397);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
     		},
     		m: function mount(target, anchor) {
-    			insert_dev(target, div4, anchor);
-    			append_dev(div4, div0);
+    			insert_dev(target, div5, anchor);
+    			append_dev(div5, div0);
     			append_dev(div0, t0);
     			append_dev(div0, span0);
     			append_dev(span0, t1);
-    			append_dev(div4, t2);
-    			append_dev(div4, div1);
+    			append_dev(div5, t2);
+    			append_dev(div5, div1);
     			append_dev(div1, t3);
     			append_dev(div1, span1);
     			append_dev(span1, t4);
-    			append_dev(div4, t5);
-    			append_dev(div4, div2);
+    			append_dev(div5, t5);
+    			append_dev(div5, div2);
     			append_dev(div2, t6);
     			append_dev(div2, span2);
     			append_dev(span2, t7);
-    			append_dev(div4, t8);
-    			append_dev(div4, div3);
+    			append_dev(div5, t8);
+    			append_dev(div5, div3);
     			append_dev(div3, t9);
     			append_dev(div3, span3);
     			append_dev(span3, t10);
+    			append_dev(div5, t11);
+    			append_dev(div5, div4);
+    			append_dev(div4, t12);
+    			append_dev(div4, span4);
+    			append_dev(span4, t13);
     		},
     		p: function update(ctx, [dirty]) {
     			if (dirty & /*score*/ 1) set_data_dev(t1, /*score*/ ctx[0]);
     			if (dirty & /*molangeur_score*/ 2) set_data_dev(t4, /*molangeur_score*/ ctx[1]);
     			if (dirty & /*difference*/ 4) set_data_dev(t7, /*difference*/ ctx[2]);
     			if (dirty & /*molangeur_best*/ 8) set_data_dev(t10, /*molangeur_best*/ ctx[3]);
+    			if (dirty & /*n_remaining_letters*/ 16) set_data_dev(t13, /*n_remaining_letters*/ ctx[4]);
     		},
     		i: noop,
     		o: noop,
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(div4);
+    			if (detaching) detach_dev(div5);
     		}
     	};
 
@@ -12569,15 +12632,16 @@ var app = (function () {
     	let molangeur_score;
     	let difference;
     	let molangeur_best;
+    	let n_remaining_letters;
     	let $GameStateStore;
     	validate_store(GameStateStore, "GameStateStore");
-    	component_subscribe($$self, GameStateStore, $$value => $$invalidate(5, $GameStateStore = $$value));
+    	component_subscribe($$self, GameStateStore, $$value => $$invalidate(6, $GameStateStore = $$value));
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots("Info", slots, []);
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1$1.warn(`<Info> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1.warn(`<Info> was created with unknown prop '${key}'`);
     	});
 
     	$$self.$capture_state = () => ({
@@ -12587,15 +12651,17 @@ var app = (function () {
     		molangeur_score,
     		difference,
     		molangeur_best,
+    		n_remaining_letters,
     		$GameStateStore
     	});
 
     	$$self.$inject_state = $$props => {
-    		if ("id" in $$props) $$invalidate(4, id = $$props.id);
+    		if ("id" in $$props) $$invalidate(5, id = $$props.id);
     		if ("score" in $$props) $$invalidate(0, score = $$props.score);
     		if ("molangeur_score" in $$props) $$invalidate(1, molangeur_score = $$props.molangeur_score);
     		if ("difference" in $$props) $$invalidate(2, difference = $$props.difference);
     		if ("molangeur_best" in $$props) $$invalidate(3, molangeur_best = $$props.molangeur_best);
+    		if ("n_remaining_letters" in $$props) $$invalidate(4, n_remaining_letters = $$props.n_remaining_letters);
     	};
 
     	if ($$props && "$$inject" in $$props) {
@@ -12603,32 +12669,48 @@ var app = (function () {
     	}
 
     	$$self.$$.update = () => {
-    		if ($$self.$$.dirty & /*$GameStateStore, id, molangeur_score, score*/ 51) {
+    		if ($$self.$$.dirty & /*$GameStateStore, id, molangeur_score, score*/ 99) {
     			{
     				if ($GameStateStore) {
-    					$$invalidate(4, id = $GameStateStore.id);
+    					$$invalidate(5, id = $GameStateStore.player_id);
     					let player = $GameStateStore.players.filter(e => e.id === id)[0];
     					let molangeur = $GameStateStore.molangeur;
-    					console.log(player);
+
+    					// console.log(player)
     					console.log(molangeur);
+
     					$$invalidate(0, score = player ? player.score : 0);
 
     					// molangeur_score = molangeur.score
     					$$invalidate(1, molangeur_score = player ? player.molangeur : 0);
 
-    					$$invalidate(3, molangeur_best = molangeur ? molangeur.next_score : 0);
+    					$$invalidate(3, molangeur_best = molangeur
+    					? molangeur.next_score ? molangeur.next_score : "..."
+    					: "...");
+
     					$$invalidate(2, difference = molangeur_score - score);
+    					$$invalidate(4, n_remaining_letters = $GameStateStore.letters_left);
     				}
     			}
     		}
     	};
 
-    	$$invalidate(4, id = null);
+    	$$invalidate(5, id = null);
     	$$invalidate(0, score = 0);
     	$$invalidate(1, molangeur_score = 0);
     	$$invalidate(2, difference = 0);
-    	$$invalidate(3, molangeur_best = 0);
-    	return [score, molangeur_score, difference, molangeur_best, id, $GameStateStore];
+    	$$invalidate(3, molangeur_best = "");
+    	$$invalidate(4, n_remaining_letters = 0);
+
+    	return [
+    		score,
+    		molangeur_score,
+    		difference,
+    		molangeur_best,
+    		n_remaining_letters,
+    		id,
+    		$GameStateStore
+    	];
     }
 
     class Info extends SvelteComponentDev {
@@ -12879,17 +12961,15 @@ var app = (function () {
     	let div0;
     	let t0;
     	let span0;
-    	let t1_value = /*getDate*/ ctx[2](/*game*/ ctx[0].create_date) + "";
+    	let t1_value = /*getDate*/ ctx[3](/*game*/ ctx[0].create_date) + "";
     	let t1;
     	let t2;
     	let span1;
-    	let t3_value = /*getTime*/ ctx[3](/*game*/ ctx[0].create_date) + "";
+    	let t3_value = /*getTime*/ ctx[4](/*game*/ ctx[0].create_date) + "";
     	let t3;
     	let t4;
     	let div1;
-    	let span2;
-    	let t5_value = `(id #${/*game*/ ctx[0].id})` + "";
-    	let t5;
+    	let button;
     	let t6;
     	let div9;
     	let img;
@@ -12898,36 +12978,36 @@ var app = (function () {
     	let div8;
     	let div3;
     	let t8;
-    	let span3;
+    	let span2;
     	let t9_value = /*game*/ ctx[0].players[0].score + "";
     	let t9;
     	let t10;
     	let div4;
     	let t11;
-    	let span4;
+    	let span3;
     	let t12_value = /*game*/ ctx[0].players[0].molangeur + "";
     	let t12;
     	let t13;
     	let div5;
     	let t14;
-    	let span5;
+    	let span4;
     	let t15_value = /*game*/ ctx[0].players[0].molangeur - /*game*/ ctx[0].players[0].score + "";
     	let t15;
     	let t16;
     	let div6;
     	let t17;
-    	let span6;
+    	let span5;
     	let t18_value = /*game*/ ctx[0].round + "";
     	let t18;
     	let t19;
     	let div7;
     	let t20;
-    	let span7;
-    	let t21_value = /*getDate*/ ctx[2](/*game*/ ctx[0].update_date) + "";
+    	let span6;
+    	let t21_value = /*getDate*/ ctx[3](/*game*/ ctx[0].update_date) + "";
     	let t21;
     	let t22;
-    	let span8;
-    	let t23_value = /*getTime*/ ctx[3](/*game*/ ctx[0].update_date) + "";
+    	let span7;
+    	let t23_value = /*getTime*/ ctx[4](/*game*/ ctx[0].update_date) + "";
     	let t23;
     	let mounted;
     	let dispose;
@@ -12945,8 +13025,8 @@ var app = (function () {
     			t3 = text(t3_value);
     			t4 = space();
     			div1 = element("div");
-    			span2 = element("span");
-    			t5 = text(t5_value);
+    			button = element("button");
+    			button.textContent = "Supprimer";
     			t6 = space();
     			div9 = element("div");
     			img = element("img");
@@ -12954,70 +13034,70 @@ var app = (function () {
     			div8 = element("div");
     			div3 = element("div");
     			t8 = text("Ton score: ");
-    			span3 = element("span");
+    			span2 = element("span");
     			t9 = text(t9_value);
     			t10 = space();
     			div4 = element("div");
     			t11 = text("Score de Maître MoLangeur: ");
-    			span4 = element("span");
+    			span3 = element("span");
     			t12 = text(t12_value);
     			t13 = space();
     			div5 = element("div");
     			t14 = text("Différence de score: ");
-    			span5 = element("span");
+    			span4 = element("span");
     			t15 = text(t15_value);
     			t16 = space();
     			div6 = element("div");
     			t17 = text("Nombre de tours faits: ");
-    			span6 = element("span");
+    			span5 = element("span");
     			t18 = text(t18_value);
     			t19 = space();
     			div7 = element("div");
     			t20 = text("Dernière modification le ");
-    			span7 = element("span");
+    			span6 = element("span");
     			t21 = text(t21_value);
     			t22 = text("\r\n                à ");
-    			span8 = element("span");
+    			span7 = element("span");
     			t23 = text(t23_value);
-    			attr_dev(span0, "class", "date svelte-foqevo");
-    			add_location(span0, file$2, 17, 42, 405);
-    			attr_dev(span1, "class", "date svelte-foqevo");
-    			add_location(span1, file$2, 18, 13, 473);
+    			attr_dev(span0, "class", "date svelte-1h1b2e");
+    			add_location(span0, file$2, 22, 42, 548);
+    			attr_dev(span1, "class", "date svelte-1h1b2e");
+    			add_location(span1, file$2, 23, 13, 616);
     			attr_dev(div0, "class", "main");
-    			add_location(div0, file$2, 17, 8, 371);
-    			attr_dev(span2, "class", "id svelte-foqevo");
-    			add_location(span2, file$2, 20, 11, 578);
+    			add_location(div0, file$2, 22, 8, 514);
+    			attr_dev(button, "class", "simple");
+    			add_location(button, file$2, 28, 11, 817);
     			attr_dev(div1, "class", "secondary");
-    			add_location(div1, file$2, 19, 8, 542);
-    			attr_dev(div2, "class", "title svelte-foqevo");
-    			add_location(div2, file$2, 16, 4, 342);
+    			add_location(div1, file$2, 24, 8, 685);
+    			attr_dev(div2, "class", "title svelte-1h1b2e");
+    			add_location(div2, file$2, 21, 4, 485);
     			if (img.src !== (img_src_value = /*game*/ ctx[0].img)) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "width", "200px");
-    			add_location(img, file$2, 26, 11, 720);
-    			attr_dev(span3, "class", "bold svelte-foqevo");
-    			add_location(span3, file$2, 28, 31, 825);
-    			add_location(div3, file$2, 28, 15, 809);
-    			attr_dev(span4, "class", "bold svelte-foqevo");
-    			add_location(span4, file$2, 29, 47, 929);
-    			add_location(div4, file$2, 29, 15, 897);
-    			attr_dev(span5, "class", "bold svelte-foqevo");
-    			add_location(span5, file$2, 30, 41, 1031);
-    			add_location(div5, file$2, 30, 15, 1005);
-    			attr_dev(span6, "class", "bold svelte-foqevo");
-    			add_location(span6, file$2, 31, 43, 1159);
-    			add_location(div6, file$2, 31, 15, 1131);
-    			attr_dev(span7, "class", "date svelte-foqevo");
-    			add_location(span7, file$2, 32, 45, 1250);
-    			attr_dev(span8, "class", "date svelte-foqevo");
-    			add_location(span8, file$2, 33, 18, 1323);
-    			add_location(div7, file$2, 32, 15, 1220);
+    			add_location(img, file$2, 34, 11, 976);
+    			attr_dev(span2, "class", "bold svelte-1h1b2e");
+    			add_location(span2, file$2, 36, 31, 1081);
+    			add_location(div3, file$2, 36, 15, 1065);
+    			attr_dev(span3, "class", "bold svelte-1h1b2e");
+    			add_location(span3, file$2, 37, 47, 1185);
+    			add_location(div4, file$2, 37, 15, 1153);
+    			attr_dev(span4, "class", "bold svelte-1h1b2e");
+    			add_location(span4, file$2, 38, 41, 1287);
+    			add_location(div5, file$2, 38, 15, 1261);
+    			attr_dev(span5, "class", "bold svelte-1h1b2e");
+    			add_location(span5, file$2, 39, 43, 1415);
+    			add_location(div6, file$2, 39, 15, 1387);
+    			attr_dev(span6, "class", "date svelte-1h1b2e");
+    			add_location(span6, file$2, 40, 45, 1506);
+    			attr_dev(span7, "class", "date svelte-1h1b2e");
+    			add_location(span7, file$2, 41, 18, 1579);
+    			add_location(div7, file$2, 40, 15, 1476);
     			attr_dev(div8, "class", "info");
-    			add_location(div8, file$2, 27, 11, 774);
-    			attr_dev(div9, "class", "content svelte-foqevo");
-    			add_location(div9, file$2, 25, 4, 686);
-    			attr_dev(div10, "class", "game svelte-foqevo");
-    			add_location(div10, file$2, 15, 0, 286);
+    			add_location(div8, file$2, 35, 11, 1030);
+    			attr_dev(div9, "class", "content svelte-1h1b2e");
+    			add_location(div9, file$2, 33, 4, 942);
+    			attr_dev(div10, "class", "game svelte-1h1b2e");
+    			add_location(div10, file$2, 20, 0, 429);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -13034,8 +13114,7 @@ var app = (function () {
     			append_dev(span1, t3);
     			append_dev(div2, t4);
     			append_dev(div2, div1);
-    			append_dev(div1, span2);
-    			append_dev(span2, t5);
+    			append_dev(div1, button);
     			append_dev(div10, t6);
     			append_dev(div10, div9);
     			append_dev(div9, img);
@@ -13043,41 +13122,44 @@ var app = (function () {
     			append_dev(div9, div8);
     			append_dev(div8, div3);
     			append_dev(div3, t8);
-    			append_dev(div3, span3);
-    			append_dev(span3, t9);
+    			append_dev(div3, span2);
+    			append_dev(span2, t9);
     			append_dev(div8, t10);
     			append_dev(div8, div4);
     			append_dev(div4, t11);
-    			append_dev(div4, span4);
-    			append_dev(span4, t12);
+    			append_dev(div4, span3);
+    			append_dev(span3, t12);
     			append_dev(div8, t13);
     			append_dev(div8, div5);
     			append_dev(div5, t14);
-    			append_dev(div5, span5);
-    			append_dev(span5, t15);
+    			append_dev(div5, span4);
+    			append_dev(span4, t15);
     			append_dev(div8, t16);
     			append_dev(div8, div6);
     			append_dev(div6, t17);
-    			append_dev(div6, span6);
-    			append_dev(span6, t18);
+    			append_dev(div6, span5);
+    			append_dev(span5, t18);
     			append_dev(div8, t19);
     			append_dev(div8, div7);
     			append_dev(div7, t20);
-    			append_dev(div7, span7);
-    			append_dev(span7, t21);
+    			append_dev(div7, span6);
+    			append_dev(span6, t21);
     			append_dev(div7, t22);
-    			append_dev(div7, span8);
-    			append_dev(span8, t23);
+    			append_dev(div7, span7);
+    			append_dev(span7, t23);
 
     			if (!mounted) {
-    				dispose = listen_dev(div10, "click", /*click_handler*/ ctx[4], false, false, false);
+    				dispose = [
+    					listen_dev(button, "click", /*onDelete*/ ctx[2], false, false, false),
+    					listen_dev(div10, "click", /*click_handler*/ ctx[6], false, false, false)
+    				];
+
     				mounted = true;
     			}
     		},
     		p: function update(ctx, [dirty]) {
-    			if (dirty & /*game*/ 1 && t1_value !== (t1_value = /*getDate*/ ctx[2](/*game*/ ctx[0].create_date) + "")) set_data_dev(t1, t1_value);
-    			if (dirty & /*game*/ 1 && t3_value !== (t3_value = /*getTime*/ ctx[3](/*game*/ ctx[0].create_date) + "")) set_data_dev(t3, t3_value);
-    			if (dirty & /*game*/ 1 && t5_value !== (t5_value = `(id #${/*game*/ ctx[0].id})` + "")) set_data_dev(t5, t5_value);
+    			if (dirty & /*game*/ 1 && t1_value !== (t1_value = /*getDate*/ ctx[3](/*game*/ ctx[0].create_date) + "")) set_data_dev(t1, t1_value);
+    			if (dirty & /*game*/ 1 && t3_value !== (t3_value = /*getTime*/ ctx[4](/*game*/ ctx[0].create_date) + "")) set_data_dev(t3, t3_value);
 
     			if (dirty & /*game*/ 1 && img.src !== (img_src_value = /*game*/ ctx[0].img)) {
     				attr_dev(img, "src", img_src_value);
@@ -13087,15 +13169,15 @@ var app = (function () {
     			if (dirty & /*game*/ 1 && t12_value !== (t12_value = /*game*/ ctx[0].players[0].molangeur + "")) set_data_dev(t12, t12_value);
     			if (dirty & /*game*/ 1 && t15_value !== (t15_value = /*game*/ ctx[0].players[0].molangeur - /*game*/ ctx[0].players[0].score + "")) set_data_dev(t15, t15_value);
     			if (dirty & /*game*/ 1 && t18_value !== (t18_value = /*game*/ ctx[0].round + "")) set_data_dev(t18, t18_value);
-    			if (dirty & /*game*/ 1 && t21_value !== (t21_value = /*getDate*/ ctx[2](/*game*/ ctx[0].update_date) + "")) set_data_dev(t21, t21_value);
-    			if (dirty & /*game*/ 1 && t23_value !== (t23_value = /*getTime*/ ctx[3](/*game*/ ctx[0].update_date) + "")) set_data_dev(t23, t23_value);
+    			if (dirty & /*game*/ 1 && t21_value !== (t21_value = /*getDate*/ ctx[3](/*game*/ ctx[0].update_date) + "")) set_data_dev(t21, t21_value);
+    			if (dirty & /*game*/ 1 && t23_value !== (t23_value = /*getTime*/ ctx[4](/*game*/ ctx[0].update_date) + "")) set_data_dev(t23, t23_value);
     		},
     		i: noop,
     		o: noop,
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(div10);
     			mounted = false;
-    			dispose();
+    			run_all(dispose);
     		}
     	};
 
@@ -13115,6 +13197,13 @@ var app = (function () {
     	validate_slots("Game", slots, []);
     	let { game } = $$props;
     	let { onclick } = $$props;
+    	let { ondelete } = $$props;
+
+    	const onDelete = e => {
+    		e.preventDefault();
+    		e.stopPropagation();
+    		ondelete(game.id);
+    	};
 
     	const getDate = x => {
     		let d = new Date(x);
@@ -13126,7 +13215,7 @@ var app = (function () {
     		return d.toLocaleTimeString();
     	};
 
-    	const writable_props = ["game", "onclick"];
+    	const writable_props = ["game", "onclick", "ondelete"];
 
     	Object.keys($$props).forEach(key => {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Game> was created with unknown prop '${key}'`);
@@ -13137,26 +13226,35 @@ var app = (function () {
     	$$self.$$set = $$props => {
     		if ("game" in $$props) $$invalidate(0, game = $$props.game);
     		if ("onclick" in $$props) $$invalidate(1, onclick = $$props.onclick);
+    		if ("ondelete" in $$props) $$invalidate(5, ondelete = $$props.ondelete);
     	};
 
-    	$$self.$capture_state = () => ({ game, onclick, getDate, getTime });
+    	$$self.$capture_state = () => ({
+    		game,
+    		onclick,
+    		ondelete,
+    		onDelete,
+    		getDate,
+    		getTime
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("game" in $$props) $$invalidate(0, game = $$props.game);
     		if ("onclick" in $$props) $$invalidate(1, onclick = $$props.onclick);
+    		if ("ondelete" in $$props) $$invalidate(5, ondelete = $$props.ondelete);
     	};
 
     	if ($$props && "$$inject" in $$props) {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [game, onclick, getDate, getTime, click_handler];
+    	return [game, onclick, onDelete, getDate, getTime, ondelete, click_handler];
     }
 
     class Game extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init$1(this, options, instance$2, create_fragment$2, safe_not_equal, { game: 0, onclick: 1 });
+    		init$1(this, options, instance$2, create_fragment$2, safe_not_equal, { game: 0, onclick: 1, ondelete: 5 });
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
@@ -13175,6 +13273,10 @@ var app = (function () {
     		if (/*onclick*/ ctx[1] === undefined && !("onclick" in props)) {
     			console.warn("<Game> was created without expected prop 'onclick'");
     		}
+
+    		if (/*ondelete*/ ctx[5] === undefined && !("ondelete" in props)) {
+    			console.warn("<Game> was created without expected prop 'ondelete'");
+    		}
     	}
 
     	get game() {
@@ -13192,11 +13294,17 @@ var app = (function () {
     	set onclick(value) {
     		throw new Error("<Game>: Props cannot be set directly on the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
     	}
+
+    	get ondelete() {
+    		throw new Error("<Game>: Props cannot be read directly from the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+
+    	set ondelete(value) {
+    		throw new Error("<Game>: Props cannot be set directly on the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
     }
 
     /* src\welcom\WelcomPage.svelte generated by Svelte v3.38.2 */
-
-    const { Object: Object_1, console: console_1 } = globals;
     const file$1 = "src\\welcom\\WelcomPage.svelte";
 
     function get_each_context(ctx, list, i) {
@@ -13205,7 +13313,7 @@ var app = (function () {
     	return child_ctx;
     }
 
-    // (32:4) {:else}
+    // (50:4) {:else}
     function create_else_block$1(ctx) {
     	let span;
 
@@ -13213,8 +13321,8 @@ var app = (function () {
     		c: function create() {
     			span = element("span");
     			span.textContent = "Aucune partie... Crée une partie ci-dessus pour commencer à jouer.\r\n         ";
-    			attr_dev(span, "class", "nogame svelte-t5w159");
-    			add_location(span, file$1, 32, 9, 954);
+    			attr_dev(span, "class", "nogame svelte-1lgk43c");
+    			add_location(span, file$1, 50, 9, 1446);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, span, anchor);
@@ -13228,14 +13336,14 @@ var app = (function () {
     		block,
     		id: create_else_block$1.name,
     		type: "else",
-    		source: "(32:4) {:else}",
+    		source: "(50:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (30:4) {#each game_list as game}
+    // (48:4) {#each game_list as game}
     function create_each_block(ctx) {
     	let game;
     	let current;
@@ -13243,7 +13351,8 @@ var app = (function () {
     	game = new Game({
     			props: {
     				game: /*game*/ ctx[4],
-    				onclick: /*launchGame*/ ctx[0]
+    				onclick: /*launchGame*/ ctx[0],
+    				ondelete: /*onDeleteGame*/ ctx[2]
     			},
     			$$inline: true
     		});
@@ -13258,6 +13367,7 @@ var app = (function () {
     		},
     		p: function update(ctx, dirty) {
     			const game_changes = {};
+    			if (dirty & /*game_list*/ 2) game_changes.game = /*game*/ ctx[4];
     			if (dirty & /*launchGame*/ 1) game_changes.onclick = /*launchGame*/ ctx[0];
     			game.$set(game_changes);
     		},
@@ -13279,7 +13389,7 @@ var app = (function () {
     		block,
     		id: create_each_block.name,
     		type: "each",
-    		source: "(30:4) {#each game_list as game}",
+    		source: "(48:4) {#each game_list as game}",
     		ctx
     	});
 
@@ -13289,15 +13399,18 @@ var app = (function () {
     function create_fragment$1(ctx) {
     	let div4;
     	let div0;
+    	let p0;
     	let t1;
+    	let p1;
+    	let t3;
     	let div1;
     	let button0;
-    	let t3;
-    	let button1;
     	let t5;
+    	let button1;
+    	let t7;
     	let div3;
     	let div2;
-    	let t7;
+    	let t9;
     	let current;
     	let mounted;
     	let dispose;
@@ -13323,19 +13436,23 @@ var app = (function () {
     		c: function create() {
     			div4 = element("div");
     			div0 = element("div");
-    			div0.textContent = "Bienvenue dans MoLangeur!";
+    			p0 = element("p");
+    			p0.textContent = "Bienvenue dans MoLangeur!";
     			t1 = space();
+    			p1 = element("p");
+    			p1.textContent = "Commence une nouvelle partie ou continue une partie déjà commencée (s'il y en a).\r\n            Tu peux à tout moment revenir à ce menu en cliquant sur le logo MoLangeur en haut à gauche de l'écran.\r\n            Bon jeu!";
+    			t3 = space();
     			div1 = element("div");
     			button0 = element("button");
     			button0.textContent = "Nouvelle Partie Solo (Duplicate)";
-    			t3 = space();
+    			t5 = space();
     			button1 = element("button");
     			button1.textContent = "Nouvelle Partie Solo (Classique)";
-    			t5 = space();
+    			t7 = space();
     			div3 = element("div");
     			div2 = element("div");
     			div2.textContent = "Parties existantes (clique sur un partie pour continuer à jouer):";
-    			t7 = space();
+    			t9 = space();
 
     			for (let i = 0; i < each_blocks.length; i += 1) {
     				each_blocks[i].c();
@@ -13345,21 +13462,24 @@ var app = (function () {
     				each_1_else.c();
     			}
 
-    			attr_dev(div0, "class", "intro svelte-t5w159");
-    			add_location(div0, file$1, 13, 4, 371);
-    			attr_dev(button0, "class", "svelte-t5w159");
-    			add_location(button0, file$1, 17, 8, 476);
+    			attr_dev(p0, "class", "bold svelte-1lgk43c");
+    			add_location(p0, file$1, 25, 8, 564);
+    			add_location(p1, file$1, 28, 8, 643);
+    			attr_dev(div0, "class", "intro svelte-1lgk43c");
+    			add_location(div0, file$1, 24, 4, 535);
+    			attr_dev(button0, "class", "svelte-1lgk43c");
+    			add_location(button0, file$1, 35, 8, 944);
     			button1.disabled = true;
-    			attr_dev(button1, "class", "svelte-t5w159");
-    			add_location(button1, file$1, 20, 8, 587);
-    			attr_dev(div1, "class", "new-games svelte-t5w159");
-    			add_location(div1, file$1, 16, 4, 443);
-    			attr_dev(div2, "class", "game-list-header svelte-t5w159");
-    			add_location(div2, file$1, 26, 8, 722);
+    			attr_dev(button1, "class", "svelte-1lgk43c");
+    			add_location(button1, file$1, 38, 8, 1055);
+    			attr_dev(div1, "class", "new-games svelte-1lgk43c");
+    			add_location(div1, file$1, 34, 4, 911);
+    			attr_dev(div2, "class", "game-list-header svelte-1lgk43c");
+    			add_location(div2, file$1, 44, 8, 1190);
     			attr_dev(div3, "class", "game-list");
-    			add_location(div3, file$1, 25, 4, 689);
-    			attr_dev(div4, "class", "container svelte-t5w159");
-    			add_location(div4, file$1, 12, 0, 342);
+    			add_location(div3, file$1, 43, 4, 1157);
+    			attr_dev(div4, "class", "container svelte-1lgk43c");
+    			add_location(div4, file$1, 23, 0, 506);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -13367,15 +13487,18 @@ var app = (function () {
     		m: function mount(target, anchor) {
     			insert_dev(target, div4, anchor);
     			append_dev(div4, div0);
-    			append_dev(div4, t1);
+    			append_dev(div0, p0);
+    			append_dev(div0, t1);
+    			append_dev(div0, p1);
+    			append_dev(div4, t3);
     			append_dev(div4, div1);
     			append_dev(div1, button0);
-    			append_dev(div1, t3);
+    			append_dev(div1, t5);
     			append_dev(div1, button1);
-    			append_dev(div4, t5);
+    			append_dev(div4, t7);
     			append_dev(div4, div3);
     			append_dev(div3, div2);
-    			append_dev(div3, t7);
+    			append_dev(div3, t9);
 
     			for (let i = 0; i < each_blocks.length; i += 1) {
     				each_blocks[i].m(div3, null);
@@ -13405,7 +13528,7 @@ var app = (function () {
     		p: function update(new_ctx, [dirty]) {
     			ctx = new_ctx;
 
-    			if (dirty & /*game_list, launchGame*/ 3) {
+    			if (dirty & /*game_list, launchGame, onDeleteGame*/ 7) {
     				each_value = /*game_list*/ ctx[1];
     				validate_each_argument(each_value);
     				let i;
@@ -13483,18 +13606,29 @@ var app = (function () {
     }
 
     function instance$1($$self, $$props, $$invalidate) {
+    	let game_list;
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots("WelcomPage", slots, []);
     	let { launchGame } = $$props;
-    	let game_ids = [];
-    	let games = JSON.parse(localStorage.getItem("games"));
-    	if (games) game_ids = Object.keys(games);
-    	let game_list = game_ids.map(e => games[e]).sort((a, b) => b.update_date - a.update_date);
-    	console.log(game_list);
+
+    	// export let deleteGame;
+    	const onDeleteGame = id => {
+    		deleteGame(id, () => {
+    			getGameList();
+    		});
+    	};
+
+    	const getGameList = () => {
+    		getAllGames(list => {
+    			$$invalidate(1, game_list = list);
+    		});
+    	};
+
+    	getGameList();
     	const writable_props = ["launchGame"];
 
-    	Object_1.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1.warn(`<WelcomPage> was created with unknown prop '${key}'`);
+    	Object.keys($$props).forEach(key => {
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<WelcomPage> was created with unknown prop '${key}'`);
     	});
 
     	$$self.$$set = $$props => {
@@ -13503,16 +13637,16 @@ var app = (function () {
 
     	$$self.$capture_state = () => ({
     		Game,
+    		getAllGames,
+    		deleteGame,
     		launchGame,
-    		game_ids,
-    		games,
+    		onDeleteGame,
+    		getGameList,
     		game_list
     	});
 
     	$$self.$inject_state = $$props => {
     		if ("launchGame" in $$props) $$invalidate(0, launchGame = $$props.launchGame);
-    		if ("game_ids" in $$props) game_ids = $$props.game_ids;
-    		if ("games" in $$props) games = $$props.games;
     		if ("game_list" in $$props) $$invalidate(1, game_list = $$props.game_list);
     	};
 
@@ -13520,7 +13654,8 @@ var app = (function () {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [launchGame, game_list];
+    	$$invalidate(1, game_list = []);
+    	return [launchGame, game_list, onDeleteGame];
     }
 
     class WelcomPage extends SvelteComponentDev {
@@ -13539,7 +13674,7 @@ var app = (function () {
     		const props = options.props || {};
 
     		if (/*launchGame*/ ctx[0] === undefined && !("launchGame" in props)) {
-    			console_1.warn("<WelcomPage> was created without expected prop 'launchGame'");
+    			console.warn("<WelcomPage> was created without expected prop 'launchGame'");
     		}
     	}
 
@@ -13553,9 +13688,11 @@ var app = (function () {
     }
 
     /* src\App.svelte generated by Svelte v3.38.2 */
+
+    const { Object: Object_1 } = globals;
     const file = "src\\App.svelte";
 
-    // (25:0) {:else}
+    // (33:0) {:else}
     function create_else_block(ctx) {
     	let div3;
     	let div1;
@@ -13593,18 +13730,18 @@ var app = (function () {
     			t1 = space();
     			div2 = element("div");
     			if (if_block) if_block.c();
-    			attr_dev(div0, "class", "navigation-toggle svelte-1z0j9ee");
-    			add_location(div0, file, 27, 8, 584);
+    			attr_dev(div0, "class", "navigation-toggle svelte-1tkhkkn");
+    			add_location(div0, file, 35, 8, 861);
     			if (img.src !== (img_src_value = "../images/molangeur-h_2.png")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
-    			attr_dev(img, "class", "svelte-1z0j9ee");
-    			add_location(img, file, 30, 8, 655);
-    			attr_dev(div1, "class", "header-navigation svelte-1z0j9ee");
-    			add_location(div1, file, 26, 4, 543);
-    			attr_dev(div2, "class", "content svelte-1z0j9ee");
-    			add_location(div2, file, 34, 4, 776);
-    			attr_dev(div3, "class", "container svelte-1z0j9ee");
-    			add_location(div3, file, 25, 0, 514);
+    			attr_dev(img, "class", "svelte-1tkhkkn");
+    			add_location(img, file, 38, 8, 932);
+    			attr_dev(div1, "class", "header-navigation svelte-1tkhkkn");
+    			add_location(div1, file, 34, 4, 820);
+    			attr_dev(div2, "class", "content svelte-1tkhkkn");
+    			add_location(div2, file, 42, 4, 1053);
+    			attr_dev(div3, "class", "container svelte-1tkhkkn");
+    			add_location(div3, file, 33, 0, 791);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div3, anchor);
@@ -13622,7 +13759,7 @@ var app = (function () {
     			current = true;
 
     			if (!mounted) {
-    				dispose = listen_dev(img, "click", /*click_handler*/ ctx[3], false, false, false);
+    				dispose = listen_dev(img, "click", /*click_handler*/ ctx[4], false, false, false);
     				mounted = true;
     			}
     		},
@@ -13687,14 +13824,14 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(25:0) {:else}",
+    		source: "(33:0) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (18:0) {#if !app_ready}
+    // (26:0) {#if !app_ready}
     function create_if_block(ctx) {
     	let div1;
     	let div0;
@@ -13711,12 +13848,12 @@ var app = (function () {
     			t1 = space();
     			p1 = element("p");
     			p1.textContent = "Veuillez patienter quelques instants...";
-    			add_location(p0, file, 20, 12, 385);
-    			add_location(p1, file, 21, 12, 428);
-    			attr_dev(div0, "class", "svelte-1z0j9ee");
-    			add_location(div0, file, 19, 8, 366);
-    			attr_dev(div1, "class", "loading svelte-1z0j9ee");
-    			add_location(div1, file, 18, 5, 335);
+    			add_location(p0, file, 28, 12, 662);
+    			add_location(p1, file, 29, 12, 705);
+    			attr_dev(div0, "class", "svelte-1tkhkkn");
+    			add_location(div0, file, 27, 8, 643);
+    			attr_dev(div1, "class", "loading svelte-1tkhkkn");
+    			add_location(div1, file, 26, 5, 612);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div1, anchor);
@@ -13737,14 +13874,14 @@ var app = (function () {
     		block,
     		id: create_if_block.name,
     		type: "if",
-    		source: "(18:0) {#if !app_ready}",
+    		source: "(26:0) {#if !app_ready}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (41:35) 
+    // (51:35) 
     function create_if_block_2(ctx) {
     	let gamepage;
     	let current;
@@ -13785,20 +13922,20 @@ var app = (function () {
     		block,
     		id: create_if_block_2.name,
     		type: "if",
-    		source: "(41:35) ",
+    		source: "(51:35) ",
     		ctx
     	});
 
     	return block;
     }
 
-    // (36:8) {#if page === "welcom"}
+    // (44:8) {#if page === "welcom"}
     function create_if_block_1(ctx) {
     	let welcompage;
     	let current;
 
     	welcompage = new WelcomPage({
-    			props: { launchGame: /*func*/ ctx[4] },
+    			props: { launchGame: /*func*/ ctx[5] },
     			$$inline: true
     		});
 
@@ -13812,7 +13949,7 @@ var app = (function () {
     		},
     		p: function update(ctx, dirty) {
     			const welcompage_changes = {};
-    			if (dirty & /*page, game_id*/ 3) welcompage_changes.launchGame = /*func*/ ctx[4];
+    			if (dirty & /*page, game_id*/ 3) welcompage_changes.launchGame = /*func*/ ctx[5];
     			welcompage.$set(welcompage_changes);
     		},
     		i: function intro(local) {
@@ -13833,7 +13970,7 @@ var app = (function () {
     		block,
     		id: create_if_block_1.name,
     		type: "if",
-    		source: "(36:8) {#if page === \\\"welcom\\\"}",
+    		source: "(44:8) {#if page === \\\"welcom\\\"}",
     		ctx
     	});
 
@@ -13923,19 +14060,26 @@ var app = (function () {
     }
 
     function instance($$self, $$props, $$invalidate) {
+    	let app_ready;
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots("App", slots, []);
     	let page = "welcom";
     	let game_id = null;
-    	let app_ready = false;
+    	let app_ready_steps = { dico: false, db: false };
 
+    	// let 
     	initDictionnary(() => {
-    		$$invalidate(2, app_ready = true);
+    		// app_ready = true
+    		$$invalidate(3, app_ready_steps.dico = true, app_ready_steps);
     	});
+
+    	initDatabase(() => {
+    		$$invalidate(3, app_ready_steps.db = true, app_ready_steps);
+    	}); // close()
 
     	const writable_props = [];
 
-    	Object.keys($$props).forEach(key => {
+    	Object_1.keys($$props).forEach(key => {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<App> was created with unknown prop '${key}'`);
     	});
 
@@ -13952,14 +14096,17 @@ var app = (function () {
     		GamePage,
     		WelcomPage,
     		initDictionnary,
+    		initDatabase,
     		page,
     		game_id,
+    		app_ready_steps,
     		app_ready
     	});
 
     	$$self.$inject_state = $$props => {
     		if ("page" in $$props) $$invalidate(0, page = $$props.page);
     		if ("game_id" in $$props) $$invalidate(1, game_id = $$props.game_id);
+    		if ("app_ready_steps" in $$props) $$invalidate(3, app_ready_steps = $$props.app_ready_steps);
     		if ("app_ready" in $$props) $$invalidate(2, app_ready = $$props.app_ready);
     	};
 
@@ -13967,7 +14114,13 @@ var app = (function () {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [page, game_id, app_ready, click_handler, func];
+    	$$self.$$.update = () => {
+    		if ($$self.$$.dirty & /*app_ready_steps*/ 8) {
+    			$$invalidate(2, app_ready = Object.keys(app_ready_steps).map(e => app_ready_steps[e]).reduce((a, b) => a && b));
+    		}
+    	};
+
+    	return [page, game_id, app_ready, app_ready_steps, click_handler, func];
     }
 
     class App extends SvelteComponentDev {
@@ -13993,7 +14146,7 @@ var app = (function () {
     	}
     });
 
-    console.log("HELLO");
+    window.console.log = () => {};
 
     return app;
 

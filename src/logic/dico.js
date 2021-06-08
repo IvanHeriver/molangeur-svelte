@@ -132,7 +132,12 @@ const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
 
 export const masterMolangeur = (letters, callback) => {
     const configuration = initMasterMolangeur(letters)
-    launchMasterMolangeur(configuration, callback)
+    const on_done = (words) => {
+        console.timeEnd("molangeur")
+        callback(words)
+    }
+    console.time("molangeur")
+    launchMasterMolangeur(configuration, on_done)
 }
 
 
@@ -174,6 +179,7 @@ const iteratorMasterMolangeur = (index, configuration, results, callback) => {
         words = removeDuplicatedWords(words)
         callback(words)
     } else {
+        // console.log(`iteration ${index} out of ${configuration.words_positions.length}`)
         results = [
             ...results,
             getPossibleWordsForOneGroup(

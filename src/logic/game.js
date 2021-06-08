@@ -2,100 +2,39 @@ import * as U from "./utils"
 import {LETTERS} from "./constants"
 import * as GSI from "../game/GameStateInterface"
 import * as DICO from "./dico"
-import html2canvas from "html2canvas"
-
-let GAME
-
-// window.addEventListener("beforeunload", ()=> {
-//     // console.log(GAME)
-//     // console.log()
-//     localStorage.setItem("games", JSON.stringify(GAME))
-// })
-// window.addEventListener("load", () => {
-//     console.log(localStorage.getItem("games"))
-// })
-const updateLocalStorage = () => {
-    GAME.update_date = Date.now()
-    let games = JSON.parse(localStorage.getItem("games"))
-    // console.log(games)
-    if (!games) games = {}
-    games[GAME.id] = GAME
-    // games["test2"] = GAME
-    localStorage.setItem("games", JSON.stringify(games))
-    printLocalStorageSize()
-    setTimeout(()=> {
-        let img = document.querySelector("#html-2-canvas")
-        html2canvas(img, {
-            backgroundColor: null, scale: 2,
-        }).then(function(canvas) {
-            games[GAME.id].img = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
-            localStorage.setItem("games", JSON.stringify(games))
-            printLocalStorageSize()
-        });
-    }, 100)
-}
-const printLocalStorageSize = () => {
-    // source: https://stackoverflow.com/a/15720835
-    var _lsTotal = 0,
-    _xLen, _x;
-    for (_x in localStorage) {
-        if (!localStorage.hasOwnProperty(_x)) {
-            continue;
-        }
-        _xLen = ((localStorage[_x].length + _x.length) * 2);
-        _lsTotal += _xLen;
-        console.log(_x.substr(0, 50) + " = " + (_xLen / 1024).toFixed(2) + " KB")
-    };
-    console.log("Total = " + (_lsTotal / 1024).toFixed(2) + " KB");
-
-    
-    // console.log(a)
-}
+import * as DB from "./DB"
 
 export const loadGame = (id) => {
-    console.log(id)
-    let loaded_game = JSON.parse(localStorage.getItem("games"))[id]
-    console.log(loaded_game)
-    GAME = loaded_game
-    // GSI.resetGame(GAME.players[0].id)
-    const game = {
-        id: GAME.players[0].id,
-        letters: [...GAME.board, ...GAME.players[0].rack],
-        players: [...GAME.players],
-        // players: GAME.players.map(e=>{
-        //     return {id: e.id, score: e.score, molangeur: e.molangeur}
-        // }),
-        round: GAME.round,
-    }
-    console.log(game)
-    GSI.setGame(game)
-    DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
-        console.log(words)
-        if (words.length !== 0) {
-            GSI.updateMolangeur(words)
-        } else {
+    GSI.unsetGame()
+    DB.getGame(id, (game) => {
+        const player_id = game.players[0].id
+        const player_index = game.players.map(e=>e.id).indexOf(player_id)
+        GSI.setGame(
+            game.id, player_id, game.round,  game.bag.length,
+            game.players.map(e=>{
+                return {id: e.id, score: e.score, molangeur: e.molangeur}
+            }), 
+            game.board,
+            game.players[player_index].rack
+        )
+        if (game.gameover) {
             GSI.gameOver()
+        } else {
+            DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                if (words.length !== 0) {
+                    GSI.updateMolangeur(words)
+                } else {
+                    console.error("should no happen")
+                    gameOver(game)
+                }
+            })
         }
     })
 }
 export const newGame = () => {
-    // GAME = {
-    //     bag: createBag(),
-    //     board: [
-    //         {id: "111", letter: "A", index: 112, board: true, free: false},
-    //         {id: "222", letter: "L", index: 111, board: true, free: false},
-    //     ],
-    //     players: [{
-    //         id: Math.random().toString().slice(2),
-    //         rack: [],
-    //         score: 0,
-    //         molangeur: 0,
-    //     }],
-    //     round: 0,
-    //     type: "solo-duplicate",
-    //     id: Math.random().toString().slice(2),
-    // }
-    GAME = {
+    // initialize game
+    GSI.unsetGame()
+    let GAME = {
         bag: createBag(),
         board: [],
         players: [{
@@ -110,90 +49,106 @@ export const newGame = () => {
         update_date: Date.now(),
         create_date: Date.now(),
     }
-    GSI.resetGame(GAME.players[0].id)
+    // draw first letters from bag ...
     const drawing_result = drawLetters(GAME.bag, GAME.players[0].rack, GAME.round)
+    // ... and add them to the player's rack
     GAME.players[0].rack = drawing_result.letters
+    // ... and update the letters' bag
     GAME.bag = drawing_result.bag
-    const game = {
-        board: [...GAME.board],
-        rack: [...GAME.players[0].rack],
-        players: GAME.players.map(e=>{
-            return {id: e.id, score: e.score, molangeur: 0}
-        }),
-        round: GAME.round,
-    }
-    GSI.updateGame(game)
+    // add the game to IndexedDB
+    DB.addGame(GAME)
+    // set game state store
+    GSI.setGame(
+        GAME.id, GAME.players[0].id, GAME.round, GAME.bag.length,
+        GAME.players.map(e=>{
+            return {id: e.id, score: e.score, molangeur: e.molangeur}
+        }), 
+        [],
+        GAME.players[0].rack
+    )
     // launch master molangeur on the new players game
     DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
-    // DICO.masterMolangeur(GAME.players[0].rack, (words)=>{
         GSI.updateMolangeur(words)
     })
-    updateLocalStorage()
 }
 
-
-export const onWordSubmission = (id, free_letters_on_board, max_score) => {
-    const evaluation = evaluateBoard(free_letters_on_board)
-    if (evaluation && evaluation.is_position_valid && evaluation.is_word_valid) {
-        
-        // retrieve player index:
-        const player_index = GAME.players.map(e=>e.id).indexOf(id)
-        // add letters to board
-        GAME.board = [...GAME.board, ...free_letters_on_board]
-        // retrieve remaining letters in rack
-        const rack_remaining_letters = GAME.players[player_index].rack.filter(e=>free_letters_on_board.filter(l=>l.id===e.id).length === 0)
-        // draw new letter's player
-        const drawing_result  = drawLetters(GAME.bag, rack_remaining_letters, GAME.round)
-        
-        GAME.bag = drawing_result.bag
-        const new_letters = drawing_result.letters
-        GAME.bag = drawing_result.bag
-        // remove letters from player's rack and 
-        GAME.players[player_index].rack = [
-            ...rack_remaining_letters,
-            ...new_letters
-        ]
-        // update player's score
-        GAME.players[player_index].score += evaluation.total_score
-        GAME.players[player_index].molangeur += max_score
-        // update round number
-        GAME.round++
-        console.log(GAME)
-        console.log(max_score)
-        // update player's game
-        const game = {
-            board: [...GAME.board],
-            rack: [...GAME.players[player_index].rack],
-            players: GAME.players.map(e=>{
-                return {id: e.id, score: e.score, molangeur: e.molangeur}
-            }),
-        }
-        GSI.updateGame(game)
-        // launch master molangeur on the new players game
-        GSI.updateMolangeur() 
-        DICO.masterMolangeur([...GAME.board, ...GAME.players[player_index].rack], (words)=>{
-            if (words.length !== 0) {
-                GSI.updateMolangeur(words)
-            } else {
-                GSI.gameOver()
-            }
-        })
-        
-        updateLocalStorage()
-    }
+export const getGameList = (callback) => {
+    DB.getAllGames(callback)
 }
-
-export const bestWords = (callback) => {
-    const letters = GSI.getLetters()
-    DICO.masterMolangeur(letters, (words) => {
-        GAME.players[0].target_score += words[0].pts
-        GSI.updatePlayer(GAME.players)
-        callback(words)
+export const updateGameImagePreview = (id, image_data) => {
+    DB.getGame(id, (game) => {
+        game.img = image_data
+        DB.updateGame(game)
     })
 }
-export const evaluateBoard = (free_letters_on_board) => {
+
+export const submitWord = (id, player_id, free_letters_on_board, molangeur_score) => {
+    DB.getGame(id, (game) => {
+        // retrieve player index:
+        const player_index = game.players.map(e=>e.id).indexOf(player_id)
+        // console.log(player_index)
+        // compute evaluation
+        const evaluation  = evaluateBoard(game.board, free_letters_on_board)
+        if (evaluation && evaluation.is_position_valid && evaluation.is_word_valid) {
+            // add letters to board
+            const new_fixed_letters_on_board = free_letters_on_board.map(e=>{
+                e.free = false
+                return e
+            })
+            game.board = [...game.board, ...new_fixed_letters_on_board]
+            // retrieve remaining letters in rack
+            const rack_remaining_letters = game.players[player_index].rack.filter(e=> {
+                return free_letters_on_board.filter(l=>l.id===e.id).length === 0
+            })
+            // draw new letter's player
+            const drawing_result  = drawLetters(game.bag, rack_remaining_letters, game.round)
+            // update bag accordingly
+            game.bag = drawing_result.bag
+            // remove letters from player's rack and add the new ones
+            game.players[player_index].rack = [
+                ...rack_remaining_letters,
+                ...drawing_result.letters
+            ]
+            // update player's score
+            game.players[player_index].score += evaluation.total_score
+            game.players[player_index].molangeur += molangeur_score
+            // update round number
+            game.round++
+            // update last updated date
+            game.update_date = Date.now()
+            // update IndexedDB
+            DB.updateGame(game)
+            // update players' game
+            GSI.setGame(
+                game.id, player_id, game.round, game.bag.length,
+                game.players.map(e=>{
+                    return {id: e.id, score: e.score, molangeur: e.molangeur}
+                }), 
+                [...game.board],
+                [...game.players[player_index].rack]
+            )
+            // launch master molangeur on the new players game
+            GSI.updateMolangeur()
+            DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                if (words.length !== 0) {
+                    GSI.updateMolangeur(words)
+                } else {
+                    gameOver(game)
+                }
+            })
+            
+        }
+
+    })
+}
+const gameOver = (game) => {
+    GSI.gameOver()
+    game.gameover = true
+    DB.updateGame(game)
+}
+export const evaluateBoard = (board, free_letters_on_board) => {
     // retrieve necessary data
-    const fixed_letters = GAME.board
+    const fixed_letters = board
     const board_letters = [...fixed_letters, ...free_letters_on_board]
     // these contains the same data but in "board" dimension
     // which makes it easier to access in some cases
@@ -259,7 +214,9 @@ const createBag = () => {
         return {
             id: Math.random().toString().slice(2),
             letter: e,
-            joker: ""
+            joker: "",
+            board: false, 
+            free: true,
         }
     })
     bag = U.shuffle(bag)

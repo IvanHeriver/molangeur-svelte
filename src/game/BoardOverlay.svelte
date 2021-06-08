@@ -84,7 +84,7 @@
     {/if}
     {#if game_over}
         <div class="gameover">
-            Partie terminé
+            Partie terminée!
         </div>
     {/if}
 </div>
@@ -160,13 +160,14 @@
 
     .gameover {
         position: absolute;
-        top: 35%;
+        top: 15%;
         /* bottom: 0; */
         left: 0;
         right: 0;
         text-align: center;
         /* transform: translateY(-50%); */
-        font-size: calc(var(--S) * 2);
+        font-size: calc(var(--S) * 3.15);
+        font-weight: bold;
         z-index: 10000;
         opacity: 0.75;
         user-select: none;

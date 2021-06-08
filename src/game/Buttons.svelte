@@ -33,7 +33,7 @@
     }
 
     const play = () => {
-        askForWordSubmission($GameStateStore.id)
+        askForWordSubmission($GameStateStore.id, $GameStateStore.player_id)
     }
 
 </script>
@@ -55,10 +55,10 @@
         
     </div>
     
-    <button on:click={askForNewGame}>Nouvelle partie</button>
+    <!-- <button on:click={askForNewGame}>Menu principal</button> -->
     <button on:click={moveAllFreeLettersToRack}>Ramener les lettres</button>
     {#if word_submission_possible}
-        <button on:click={play}>Jouer</button>
+        <button on:click={play}>Soumettre</button>
     {:else}
         <button on:click={play} disabled>Jouer</button>
     {/if}

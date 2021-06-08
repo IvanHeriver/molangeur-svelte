@@ -3,14 +3,22 @@
 import GamePage from "./game/GamePage.svelte"
 import WelcomPage from "./welcom/WelcomPage.svelte"
 import {initDictionnary} from "./logic/dico"
+import {initDatabase} from "./logic/DB"
 
 // let page = "game"
 let page = "welcom"
 let game_id = null
 
-let app_ready = false
+let app_ready_steps = {dico: false, db: false}
+$: app_ready = Object.keys(app_ready_steps).map(e=>app_ready_steps[e]).reduce((a, b)=>a && b)
+// let 
 initDictionnary(()=>{
-    app_ready = true
+    // app_ready = true
+    app_ready_steps.dico = true
+})
+initDatabase(()=>{
+    app_ready_steps.db = true
+    // close()
 })
 
 </script>
@@ -34,10 +42,12 @@ initDictionnary(()=>{
     </div>
     <div class="content">
         {#if page === "welcom"}
-            <WelcomPage launchGame={(id)=>{
+            <WelcomPage
+            launchGame={(id)=>{
                 page="game"
                 game_id=id
-                }}/> 
+            }}
+            /> 
         {:else if  page === "game"}
             <GamePage id={game_id}/>
             <!-- <GamePage id={null}/> -->
@@ -64,8 +74,10 @@ initDictionnary(()=>{
         height: 50px;
     }
     .navigation-toggle {
-        height: 50px;
-        width: 50px;
+        /* height: 50px;
+        width: 50px; */
+        height: 0px;
+        width: 0px;
     }
     .content {
         padding: 5px;

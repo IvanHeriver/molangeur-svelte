@@ -46,3 +46,15 @@ input {
 	border-radius:0.5em;
 	padding: 0.5em;
 }
+
+button.simple {
+	border: none;
+	border-radius:none;
+	color: grey;
+	text-decoration: underline;
+	font-size: 0.9em;
+}
+button.simple:hover {
+	color: black;
+	background-color: transparent;
+}

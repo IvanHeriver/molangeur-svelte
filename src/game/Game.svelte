@@ -1,6 +1,9 @@
 <script>
+    import {afterUpdate} from "svelte"
+    import html2canvas from "html2canvas"
+    import {newGameImagePreviewUpdate} from "./GameStateInterface"
+
     import {GameStateStore} from "./GameStore"
-    // import {askForNewGame} from "./GameStateInterface"
 
     import Letter from "./Letter.svelte"
     
@@ -9,8 +12,20 @@
     // import {onMount} from "svelte"
     export let width;
     let game, container
-    
 
+    afterUpdate(()=>{
+        if ($GameStateStore && $GameStateStore.image_preview_needed) {
+            GameStateStore.setNeedForNewImagePreview(false)
+            // let img = document.querySelector("#html-2-canvas")
+            html2canvas(container, {
+                backgroundColor: null, scale: 1, logging: false,
+            }).then(function(canvas) {
+                let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
+                newGameImagePreviewUpdate($GameStateStore.id, image_data)
+            });
+        }
+        
+    })
     const BOARD_DIM = 15
     const RACK_DIM = 7
 
@@ -72,13 +87,13 @@
         
     // askForNewGame();
 </script>
-<div class="container" id={"html-2-canvas"} bind:this={container} style={`--REF-SIZE: ${width*15/16}px;--S: ${width/16}px;`}>
+<div class="container" bind:this={container} style={`--REF-SIZE: ${width*15/16}px;--S: ${width/16}px;`}>
     <div class="game" bind:this={game}>
         <div class="board">
             <BoardOverlay game={locationFunctions}/>
             {#each board as e, i}
                 <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}>
-                    <span style='font-size: 0.7em'>{i}</span>
+                    <!-- <span style='font-size: 0.7em'>{i}</span> -->
                 </div>
             {/each}
         </div>

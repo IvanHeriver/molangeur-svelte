@@ -10,9 +10,9 @@
     $: has_something_to_show = true
     $: {
         if ($GameStateStore) {
-            console.log($GameStateStore.molangeur)
+            // console.log($GameStateStore.molangeur)
             words_list = $GameStateStore.molangeur.current_words
-            // console.log($GameStateStore.molangeur.next_words)
+            console.log($GameStateStore.molangeur.next_words)
             // first_round = $GameStateStore.round === 0
             has_something_to_show = $GameStateStore.molangeur.current_words !== null
         }

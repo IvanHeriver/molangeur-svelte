@@ -84,6 +84,7 @@ const createGameStateStore = () => {
     }
 
     const setMolangeur = (molangeur) => {
+        console.log(molangeur)
         update(state => {
             state.molangeur = molangeur
             return state;
@@ -107,6 +108,18 @@ const createGameStateStore = () => {
             return state
         })
     }
+    const setNeedForNewImagePreview = (yes=true) => {
+        update(state => {
+            state.image_preview_needed = yes
+            return state
+        })
+    }
+    const setLettersLeft = (left) => {
+        update(state => {
+            state.letters_left = left
+            return state
+        })
+    }
     return {
         subscribe,
         init: set,
@@ -126,6 +139,8 @@ const createGameStateStore = () => {
         setRound,
         setEvaluation,
         setGameOver,
+        setNeedForNewImagePreview,
+        setLettersLeft,
     }
 
 }

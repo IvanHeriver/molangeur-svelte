@@ -1,18 +1,36 @@
 <script>
     import Game from "./Game.svelte"
+    import {getAllGames, deleteGame} from "../logic/DB"
+    // import {getGameList} from "../logic/game"
+
     export let launchGame;
+    // export let deleteGame;
 
-    let game_ids = []
-    let games = JSON.parse(localStorage.getItem("games"))
-    if (games) game_ids = Object.keys(games)
-    let game_list = game_ids.map(e=>games[e]).sort((a, b) => b.update_date - a.update_date)
-    console.log(game_list)
-
+    const onDeleteGame = (id) => {
+        deleteGame(id, ()=>{
+            getGameList()
+        })
+    }
+    const getGameList = () => {
+        getAllGames((list) => {
+            game_list = list
+        })
+    }
+    $: game_list = []
+    getGameList()
+    
 </script>
 
 <div class="container">
     <div class="intro">
-        Bienvenue dans MoLangeur!
+        <p class="bold">
+            Bienvenue dans MoLangeur!
+        </p>
+        <p>
+            Commence une nouvelle partie ou continue une partie déjà commencée (s'il y en a).
+            Tu peux à tout moment revenir à ce menu en cliquant sur le logo MoLangeur en haut à gauche de l'écran.
+            Bon jeu!
+        </p>
     </div>
     <div class="new-games">
         <button on:click={launchGame(null)}>
@@ -28,7 +46,7 @@
             Parties existantes (clique sur un partie pour continuer à jouer): 
         </div>
     {#each game_list as game}
-         <Game game={game} onclick={launchGame}/>
+         <Game game={game} onclick={launchGame} ondelete={onDeleteGame}/>
     {:else}
          <span class="nogame">
             Aucune partie... Crée une partie ci-dessus pour commencer à jouer.
@@ -45,6 +63,7 @@
     .intro {
         text-align: center;
         padding: 2em;
+        padding-top: 0;
     }
     .new-games {
         display: flex;
@@ -62,6 +81,9 @@
     }
     .game-list-header {
         margin-bottom: 0.5em;
+    }
+    .bold {
+        font-weight: bold;
     }
     
 </style>
