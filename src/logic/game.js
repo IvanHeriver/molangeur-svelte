@@ -2,6 +2,7 @@ import * as U from "./utils"
 import {LETTERS} from "./constants"
 import * as GSI from "../game/GameStateInterface"
 import * as DICO from "./dico"
+import * as MOLANGEUR from "./molangeur"
 import * as DB from "./DB"
 
 export const loadGame = (id) => {
@@ -20,7 +21,15 @@ export const loadGame = (id) => {
         if (game.gameover) {
             GSI.gameOver()
         } else {
-            DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+            // DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+            //     if (words.length !== 0) {
+            //         GSI.updateMolangeur(words)
+            //     } else {
+            //         console.error("should no happen")
+            //         gameOver(game)
+            //     }
+            // })
+            MOLANGEUR.molangeur([...game.board, ...game.players[player_index].rack], (words)=>{
                 if (words.length !== 0) {
                     GSI.updateMolangeur(words)
                 } else {
@@ -67,7 +76,10 @@ export const newGame = () => {
         GAME.players[0].rack
     )
     // launch master molangeur on the new players game
-    DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
+    // DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
+    //     GSI.updateMolangeur(words)
+    // })
+    MOLANGEUR.molangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
         GSI.updateMolangeur(words)
     })
 }
@@ -129,7 +141,14 @@ export const submitWord = (id, player_id, free_letters_on_board, molangeur_score
             )
             // launch master molangeur on the new players game
             GSI.updateMolangeur()
-            DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+            // DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+            //     if (words.length !== 0) {
+            //         GSI.updateMolangeur(words)
+            //     } else {
+            //         gameOver(game)
+            //     }
+            // })
+            MOLANGEUR.molangeur([...game.board, ...game.players[player_index].rack], (words)=>{
                 if (words.length !== 0) {
                     GSI.updateMolangeur(words)
                 } else {
@@ -146,10 +165,15 @@ const gameOver = (game) => {
     game.gameover = true
     DB.updateGame(game)
 }
+
+// FIXME: rewrite and refactor this function
+// I should use the constants more for more efficiency
 export const evaluateBoard = (board, free_letters_on_board) => {
+
     // retrieve necessary data
     const fixed_letters = board
     const board_letters = [...fixed_letters, ...free_letters_on_board]
+    MOLANGEUR.checkBoard(board_letters)
     // these contains the same data but in "board" dimension
     // which makes it easier to access in some cases
     const arr_board_letters = U.buildBoardIndexArray(board_letters)
@@ -184,11 +208,13 @@ export const evaluateBoard = (board, free_letters_on_board) => {
 
     if (actual_words.length === 0) return false
 
-    const words_validity = actual_words.map(e=>DICO.checkWordValidity(e))
+    // const words_validity = actual_words.map(e=>DICO.checkWordValidity(e))
+    const words_validity = actual_words.map(e=>MOLANGEUR.checkWord(e))
     const is_word_valid = words_validity.reduce((p, c) => p && c, true)
     const words_free_letter_count = new_words.map(e=>e.word.filter(l=>l.free).length)
     const main_word_index = words_free_letter_count.indexOf(Math.max(...words_free_letter_count))
-    const word_scores = new_words.map(e=>DICO.computeWordScore(e.word))
+    // const word_scores = new_words.map(e=>DICO.computeWordScore(e.word))
+    const word_scores = new_words.map(e=>MOLANGEUR.computeWordScore(e.word))
     const total_score = word_scores.reduce((p, c)=>p+c, 0)
 
     let last_letter_index = new_words[main_word_index].word.slice(-1)[0].index

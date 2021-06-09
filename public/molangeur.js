@@ -1,134 +1,49 @@
-import * as U from "./utils"
-import {LETTERS, LTRS, POINTS, MAPPING, WORD_POSITIONS, CELLS} from "./constants"
-let DICO
+onmessage = (e) => {
+    const msg = e.data
+    console.log(`message received: ${msg.code} (${msg.id})`);
+    console.log(msg)
 
-export const initDictionnary = (callback) => {
-    makeDictionnary(callback)
+    if (msg.code === "init") init(msg.content, msg.id)
+    if (msg.code === "molangeur") molangeur(msg.content, msg.id)
+    // if (msg.code === "get-dictionnary") getDictionnary(msg.id)
 }
-const makeDictionnary = (callback) => {
-    fetch("./ALL_WORDS.txt").then(e=>e.text()).then(e=>{
-        const dico = buildDictionnaryObject(e.split("\r\n"))
-        DICO = dico
-        callback()
+
+let LETTERS, LTRS, POINTS, MAPPING, WORD_POSITIONS, DICO
+const init = (constants, id) => {
+    LETTERS = constants.LETTERS
+    LTRS = constants.LTRS
+    POINTS = constants.POINTS
+    MAPPING = constants.MAPPING
+    WORD_POSITIONS = constants.WORD_POSITIONS
+    DICO = constants.DICO
+    postMessage({id: id, content: true})
+}
+
+const molangeur = (letters, id) => {
+    masterMolangeur(letters, (words) => {
+        postMessage({id: id, content: words})
     })
-}
-const buildDictionnaryObject = (words) => {
-    let dico = {};
-    const addWordToDico = (w, D, k=0) => {
-        if ( w[k]) {
-            if (D[w[k]] === undefined) D[w[k]] = {}
-            D[w[k]] = addWordToDico(w, D[w[k]], k+1)
-        } else {
-            D["$"] = w
-            
-        }
-        return D
-    }
-    words.map(w=>{
-        dico = addWordToDico(w, dico)
-    })
-    return dico
+    
 }
 
-export const checkWordValidity = (word, k=0, D=DICO) => {
-    if (word[k] === undefined) return D["$"] !== undefined
-    if(D[word[k]] === undefined) return false 
-    return checkWordValidity(word, k+1, D[word[k]])
-}
 
-// obsolete, I should use the POINTS constant instead
-export const computeWordScore = (letters) => {
-    const values = letters.map(e=>{
-        let letter_value = LETTERS[e.letter].pts
-        let word_multiplier = 1
-        if (e.free) {
-            if (U.isInArray(CELLS.letter_double, e.index)) letter_value *= 2
-            if (U.isInArray(CELLS.letter_triple, e.index)) letter_value *= 3
-            if (U.isInArray(CELLS.word_double, e.index)) word_multiplier = 2
-            if (U.isInArray(CELLS.word_triple, e.index)) word_multiplier = 3
-        }
-        return {letter_value, word_multiplier}
-    })
-    let word_value = values.reduce((p, c)=>p+c.letter_value, 0)
-    let word_multiplier = values.reduce((p, c)=>p*c.word_multiplier, 1)
-    let free_letter_count = letters.reduce((t, c)=>c.free ? t+1 : t, 0)
-    return word_value * word_multiplier + (free_letter_count===7 ? 50 : 0)
-}
+// =============================================================== //
+// =============================================================== //
+//                                                                 //
+//                        Master MoLangeur                         //
+//                                                                 //
+// =============================================================== //
+// =============================================================== //
+// depends on : 
+// U.buildBoardIndexArray
+// U.unique
+// MAPPING.NEIGHBORS
+// LETTERS
+// POINTS
+// LTRS
+// WORD_POSITIONS
 
-const buildWordsFromFreeCell = (index, arr_fixed_letters) => {
-    const getLtrs = (index, full=[], dir="left") => {
-        let n = MAPPING.NEIGHBORS[index][dir]
-        if (n !== null) {
-            if (arr_fixed_letters[n] !== null) {
-                full.push(arr_fixed_letters[n].letter)
-                getLtrs(n, full, dir)
-            } 
-        }
-        return full
-    }
-    const h_left = getLtrs(index, [], "left").reverse()
-    const horizontal = [
-        ...h_left, 
-        null,
-        ...getLtrs(index, [], "right")
-    ]
-    const v_top = getLtrs(index, [], "top").reverse()
-    const vertical = [
-        ...v_top, 
-        null,
-        ...getLtrs(index, [], "bottom")
-    ]
-    //REFACTOR
-    return {
-        horizontal: horizontal.length === 1 ? null : horizontal,
-        vertical: vertical.length === 1 ? null : vertical,
-        null_index: {v: v_top.length, h: h_left.length},
-        vertical_fixed_points: vertical.length === 1 ? null : vertical.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
-        horizontal_fixed_points: horizontal.length === 1 ? null : horizontal.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
-    }
-}
-
-const findValidCellsAndOrthogonalWords = (fixed_letters, arr_fixed_letters) => {
-    if (arr_fixed_letters[112] === null) return [{index: 112, vertical: null, horizontal: null}]
-    const cells = U.unique(fixed_letters.map(e=>Object.values(MAPPING.NEIGHBORS[e.index])).flat().sort((a, b)=>a>b))
-    return cells.filter(e=>arr_fixed_letters[e]===null).map(e=>{
-        return {
-            index: e,
-            ...buildWordsFromFreeCell(e, arr_fixed_letters),
-        }
-    })
-}
-const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
-    const ltrs = free_letters.map(e=>e.letter)
-    return valid_cells.map(cell=>{
-        let p = POINTS[cell.index]
-        let n_h, w_h, l_h, p_h
-        if (cell.horizontal) {
-            n_h = cell.horizontal.length
-            w_h = findWords(ltrs, n_h, n_h, cell.horizontal, Array(n_h).fill(null)).map(e=>e.word)
-            l_h = w_h.map(e=>e.slice(cell.null_index.h, cell.null_index.h+1))
-
-            p_h = l_h.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.horizontal_fixed_points) * p.word_multiplier)
-        }
-        let n_v, w_v, l_v, p_v
-        if (cell.vertical) {
-            n_v = cell.vertical.length
-            w_v = findWords(ltrs, n_v, n_v, cell.vertical, Array(n_v).fill(null)).map(e=>e.word)
-            l_v = w_v.map(e=>e.slice(cell.null_index.v, cell.null_index.v+1))
-            p_v = l_v.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.vertical_fixed_points) * p.word_multiplier)
-        }
-        return {
-            index: cell.index,
-            v: l_v ? U.unique(l_v) : null,
-            h: l_h ? U.unique(l_h) : null,
-            p,
-            p_v,
-            p_h,
-        }
-    })
-}
-
-export const masterMolangeur = (letters, callback) => {
+const masterMolangeur = (letters, callback) => {
     const configuration = initMasterMolangeur(letters)
     const on_done = (words) => {
         console.timeEnd("molangeur")
@@ -142,13 +57,13 @@ export const masterMolangeur = (letters, callback) => {
 const initMasterMolangeur = (letters) => {
     
     const fixed_letters = letters.filter(e=>e.board && !e.free)
-    const arr_fixed_letters = U.buildBoardIndexArray(fixed_letters)
+    const arr_fixed_letters = buildBoardIndexArray(fixed_letters)
 
     const free_letters = letters.filter(e=>e.free)
 
     const valid_cells = findValidCellsAndOrthogonalWords(fixed_letters, arr_fixed_letters)
     const free_constraints = computeFreeConstrainsOfValidCells(valid_cells, free_letters)
-    const arr_free_constraints = U.buildBoardIndexArray(free_constraints)
+    const arr_free_constraints = buildBoardIndexArray(free_constraints)
 
     const words_positions = computeWordPositions(arr_fixed_letters, valid_cells, free_letters.length)
     
@@ -177,7 +92,7 @@ const iteratorMasterMolangeur = (index, configuration, results, callback) => {
         words = removeDuplicatedWords(words)
         callback(words)
     } else {
-        // console.log(`iteration ${index} out of ${configuration.words_positions.length}`)
+        // console.log(`iteration ${index + 1} out of ${configuration.words_positions.length}`)
         results = [
             ...results,
             getPossibleWordsForOneGroup(
@@ -188,12 +103,11 @@ const iteratorMasterMolangeur = (index, configuration, results, callback) => {
                 configuration.words_positions[index].dir === "V"
             )
         ]
-        setTimeout(()=>{
+        // setTimeout(()=>{
             iteratorMasterMolangeur(index+1, configuration, results, callback)
-        }, 0)
+        // }, 0)
     }
 }
-
 
 const removeDuplicatedWords = (arr) => {
     let ids = arr.map(e=>e.word+e.index+e.dir)
@@ -208,9 +122,6 @@ const removeDuplicatedWords = (arr) => {
         }
     })
 }
-
-
-
 
 const findWords = (letters, min_length, max_length, fixed_constraints, free_constraints) => {
     const found = [];
@@ -367,4 +278,91 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
         }
     })
     return output
+}
+
+
+
+const findValidCellsAndOrthogonalWords = (fixed_letters, arr_fixed_letters) => {
+    if (arr_fixed_letters[112] === null) return [{index: 112, vertical: null, horizontal: null}]
+    const cells = unique(fixed_letters.map(e=>Object.values(MAPPING.NEIGHBORS[e.index])).flat().sort((a, b)=>a>b))
+    return cells.filter(e=>arr_fixed_letters[e]===null).map(e=>{
+        return {
+            index: e,
+            ...buildWordsFromFreeCell(e, arr_fixed_letters),
+        }
+    })
+}
+const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
+    const ltrs = free_letters.map(e=>e.letter)
+    return valid_cells.map(cell=>{
+        let p = POINTS[cell.index]
+        let n_h, w_h, l_h, p_h
+        if (cell.horizontal) {
+            n_h = cell.horizontal.length
+            w_h = findWords(ltrs, n_h, n_h, cell.horizontal, Array(n_h).fill(null)).map(e=>e.word)
+            l_h = w_h.map(e=>e.slice(cell.null_index.h, cell.null_index.h+1))
+
+            p_h = l_h.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.horizontal_fixed_points) * p.word_multiplier)
+        }
+        let n_v, w_v, l_v, p_v
+        if (cell.vertical) {
+            n_v = cell.vertical.length
+            w_v = findWords(ltrs, n_v, n_v, cell.vertical, Array(n_v).fill(null)).map(e=>e.word)
+            l_v = w_v.map(e=>e.slice(cell.null_index.v, cell.null_index.v+1))
+            p_v = l_v.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.vertical_fixed_points) * p.word_multiplier)
+        }
+        return {
+            index: cell.index,
+            v: l_v ? unique(l_v) : null,
+            h: l_h ? unique(l_h) : null,
+            p,
+            p_v,
+            p_h,
+        }
+    })
+}
+
+
+const buildWordsFromFreeCell = (index, arr_fixed_letters) => {
+    const getLtrs = (index, full=[], dir="left") => {
+        let n = MAPPING.NEIGHBORS[index][dir]
+        if (n !== null) {
+            if (arr_fixed_letters[n] !== null) {
+                full.push(arr_fixed_letters[n].letter)
+                getLtrs(n, full, dir)
+            } 
+        }
+        return full
+    }
+    const h_left = getLtrs(index, [], "left").reverse()
+    const horizontal = [
+        ...h_left, 
+        null,
+        ...getLtrs(index, [], "right")
+    ]
+    const v_top = getLtrs(index, [], "top").reverse()
+    const vertical = [
+        ...v_top, 
+        null,
+        ...getLtrs(index, [], "bottom")
+    ]
+    //REFACTOR
+    return {
+        horizontal: horizontal.length === 1 ? null : horizontal,
+        vertical: vertical.length === 1 ? null : vertical,
+        null_index: {v: v_top.length, h: h_left.length},
+        vertical_fixed_points: vertical.length === 1 ? null : vertical.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
+        horizontal_fixed_points: horizontal.length === 1 ? null : horizontal.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
+    }
+}
+
+const unique = (arr) => {
+    const u = new Set(arr)
+    return [...u]
+}
+
+const buildBoardIndexArray = (letters) => {
+    let arr = Array(15 * 15).fill(null)
+    letters.map(e=>arr[e.index] = e)
+    return arr
 }

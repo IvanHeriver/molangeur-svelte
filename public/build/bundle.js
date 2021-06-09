@@ -670,9 +670,6 @@ var app = (function () {
     const GameStateStore = createGameStateStore();
     const GameGimmickStore = createGameGimmickStore();
 
-    const isInArray = (array, value) => {
-        return array.indexOf(value) !== -1
-    };
     const unique = (arr) => {
         const u = new Set(arr);
         return [...u]
@@ -791,7 +788,7 @@ var app = (function () {
 
     // given an array of letter, build the board array
     // with null where there is no letter and the letter otherwise
-    const buildBoardIndexArray = (letters) => {
+    const buildBoardIndexArray$1 = (letters) => {
         let arr = Array(15 * 15).fill(null);
         letters.map(e=>arr[e.index] = e);
         return arr
@@ -833,7 +830,8 @@ var app = (function () {
     // b = ["word", "index", "dir"]
 
     const LETTERS = {
-        _: {pts: 0, n: 2, vowel: true, consonant: true},
+        // _: {pts: 0, n: 2, vowel: true, consonant: true},
+        _: {pts: 0, n: 10, vowel: true, consonant: true},
         A: {pts: 1, n: 9, vowel: true, consonant: false},
         B: {pts: 3, n: 2, vowel: false, consonant: true},
         C: {pts: 3, n: 2, vowel: false, consonant: true},
@@ -893,7 +891,7 @@ var app = (function () {
     let ltrs = Object.keys(LETTERS).filter(e=>e!=="_");
     const LTRS = ltrs;
 
-    const CELLS = {
+    const CELLS$1 = {
         letter_double: [3, 11, 36, 38, 45, 52, 59, 92, 96, 98, 102, 108,
              116, 122, 126, 128, 132, 165, 172, 179, 186, 188, 213, 221],
         letter_triple: [20, 24, 76, 80, 84, 88, 136, 140, 144, 148, 200, 204],
@@ -909,10 +907,10 @@ var app = (function () {
     // }
 
     const POINTS = Array(15 * 15).fill(0).map((e, i) => {
-        const ld = CELLS.letter_double.indexOf(i)===-1 ? 1 : 2;
-        const lt = CELLS.letter_triple.indexOf(i)===-1 ? 1 : 3;
-        const wd = CELLS.word_double.indexOf(i)===-1 ? 1 : 2;
-        const wt = CELLS.word_triple.indexOf(i)===-1 ? 1 : 3;
+        const ld = CELLS$1.letter_double.indexOf(i)===-1 ? 1 : 2;
+        const lt = CELLS$1.letter_triple.indexOf(i)===-1 ? 1 : 3;
+        const wd = CELLS$1.word_double.indexOf(i)===-1 ? 1 : 2;
+        const wt = CELLS$1.word_triple.indexOf(i)===-1 ? 1 : 3;
         return {
             letter_mutliplier: ld * lt,
             word_multiplier: wd * wt
@@ -976,15 +974,12 @@ var app = (function () {
     };
     const MAPPING = computeIndexRowColMapping();
 
-    let DICO;
-
     const initDictionnary = (callback) => {
         makeDictionnary(callback);
     };
     const makeDictionnary = (callback) => {
         fetch("./ALL_WORDS.txt").then(e=>e.text()).then(e=>{
-            const dico = buildDictionnaryObject(e.split("\r\n"));
-            DICO = dico;
+            buildDictionnaryObject(e.split("\r\n"));
             callback();
         });
     };
@@ -1006,14 +1001,98 @@ var app = (function () {
         return dico
     };
 
-    const checkWordValidity = (word, k=0, D=DICO) => {
-        if (word[k] === undefined) return D["$"] !== undefined
-        if(D[word[k]] === undefined) return false 
-        return checkWordValidity(word, k+1, D[word[k]])
+    let WORKER; 
+    if (window.Worker) {
+        WORKER = new Worker('molangeur.js');
+    } else {
+        alert(`Ce site necessite la technologie "Worker" que votre navigateur ne possède pas.
+    Certaines fonctionnalités importantes ne fonctionneront.
+    Cela inclue le maître MoLangeur, l'algorithme permettant de trouver le meilleur mot dans une situation donnée.`);
+        WORKER = {addEventListener: () => {}, postMessage: () => {}};
+    }
+
+    const makeID = () => Math.random().toString().slice(2);
+    const callbacks = {};
+    WORKER.addEventListener("message", (e)=>{
+        const msg = e.data;
+        console.log(`message received: ${msg.id}`);
+        console.log(msg);
+        if (msg.id && callbacks[msg.id]) {
+            callbacks[msg.id](msg.content);
+            delete callbacks[msg.id];
+        }
+    });
+
+    let DICO;
+    const initMolangeur = (callback) => {
+        let id = makeID();
+        callbacks[id] = callback;
+        fetch("./ALL_WORDS.txt").then(e=>e.text()).then(e=>{
+            let words = e.split("\r\n");
+            DICO = {};
+            const addWordToDico = (w, D, k=0) => {
+                if ( w[k]) {
+                    if (D[w[k]] === undefined) D[w[k]] = {};
+                    D[w[k]] = addWordToDico(w, D[w[k]], k+1);
+                } else {
+                    D["$"] = w;
+                    
+                }
+                return D
+            };
+            words.map(w=>{
+                DICO = addWordToDico(w, DICO);
+            });
+            WORKER.postMessage({code: "init", id: id, content: {
+                LETTERS, LTRS, POINTS, MAPPING, WORD_POSITIONS, DICO
+            }});
+        });
+
+    };
+    // this is the only non-worker function
+    const checkWord = (word) => {
+        const check = (word, k=0, D=DICO) => {
+            if (word[k] === undefined) return D["$"] !== undefined
+            if(D[word[k]] === undefined) return false 
+            return check(word, k+1, D[word[k]])
+        };
+        return check(word)
+    };
+
+    const molangeur = (letters, callback) => {
+        let id = makeID();
+        callbacks[id] = callback;
+        WORKER.postMessage({code: "molangeur", id: id, content: letters});
+    };
+
+    const checkBoard = (letters) => {
+        letters.filter(e=>e.board && e.free);
+        const existing_letters = letters.filter(e=>e.board && !e.free);
+        buildBoardIndexArray(existing_letters);
+
+        // for each submitted letter, see if it is on center cell or has a neighor
+        // let res = submitted_letters.map(e=> {
+        //     // return MAPPING.NEIGHBORS[e.index]
+        //     let neighbors =  MAPPING.NEIGHBORS[e.index]
+
+        //         existing_letters_arr[neighbors.top] || existing_letters_arr[i].left ||
+        //         existing_letters_arr[i].right || existing_letters_arr[i].bottom
+        //     }).length
+        // })
+        // console.log("***********************************")
+        // console.log(submitted_letters)
+        // console.log(existing_letters)
+        // console.log(res)
     };
 
 
+    const buildBoardIndexArray = (letters) => {
+        let arr = Array(15 * 15).fill(null);
+        letters.map(e=>arr[e.index] = e);
+        return arr
+    };
 
+    // FIXME: to delete!!!
     // obsolete, I should use the POINTS constant instead
     const computeWordScore = (letters) => {
         const values = letters.map(e=>{
@@ -1032,319 +1111,15 @@ var app = (function () {
         let free_letter_count = letters.reduce((t, c)=>c.free ? t+1 : t, 0);
         return word_value * word_multiplier + (free_letter_count===7 ? 50 : 0)
     };
-
-    const buildWordsFromFreeCell = (index, arr_fixed_letters) => {
-        const getLtrs = (index, full=[], dir="left") => {
-            let n = MAPPING.NEIGHBORS[index][dir];
-            if (n !== null) {
-                if (arr_fixed_letters[n] !== null) {
-                    full.push(arr_fixed_letters[n].letter);
-                    getLtrs(n, full, dir);
-                } 
-            }
-            return full
-        };
-        const h_left = getLtrs(index, [], "left").reverse();
-        const horizontal = [
-            ...h_left, 
-            null,
-            ...getLtrs(index, [], "right")
-        ];
-        const v_top = getLtrs(index, [], "top").reverse();
-        const vertical = [
-            ...v_top, 
-            null,
-            ...getLtrs(index, [], "bottom")
-        ];
-        //REFACTOR
-        return {
-            horizontal: horizontal.length === 1 ? null : horizontal,
-            vertical: vertical.length === 1 ? null : vertical,
-            null_index: {v: v_top.length, h: h_left.length},
-            vertical_fixed_points: vertical.length === 1 ? null : vertical.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
-            horizontal_fixed_points: horizontal.length === 1 ? null : horizontal.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
-        }
+    const isInArray = (array, value) => {
+        return array.indexOf(value) !== -1
     };
-
-    const findValidCellsAndOrthogonalWords = (fixed_letters, arr_fixed_letters) => {
-        if (arr_fixed_letters[112] === null) return [{index: 112, vertical: null, horizontal: null}]
-        const cells = unique(fixed_letters.map(e=>Object.values(MAPPING.NEIGHBORS[e.index])).flat().sort((a, b)=>a>b));
-        return cells.filter(e=>arr_fixed_letters[e]===null).map(e=>{
-            return {
-                index: e,
-                ...buildWordsFromFreeCell(e, arr_fixed_letters),
-            }
-        })
-    };
-    const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
-        const ltrs = free_letters.map(e=>e.letter);
-        return valid_cells.map(cell=>{
-            let p = POINTS[cell.index];
-            let n_h, w_h, l_h, p_h;
-            if (cell.horizontal) {
-                n_h = cell.horizontal.length;
-                w_h = findWords$1(ltrs, n_h, n_h, cell.horizontal, Array(n_h).fill(null)).map(e=>e.word);
-                l_h = w_h.map(e=>e.slice(cell.null_index.h, cell.null_index.h+1));
-
-                p_h = l_h.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.horizontal_fixed_points) * p.word_multiplier);
-            }
-            let n_v, w_v, l_v, p_v;
-            if (cell.vertical) {
-                n_v = cell.vertical.length;
-                w_v = findWords$1(ltrs, n_v, n_v, cell.vertical, Array(n_v).fill(null)).map(e=>e.word);
-                l_v = w_v.map(e=>e.slice(cell.null_index.v, cell.null_index.v+1));
-                p_v = l_v.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.vertical_fixed_points) * p.word_multiplier);
-            }
-            return {
-                index: cell.index,
-                v: l_v ? unique(l_v) : null,
-                h: l_h ? unique(l_h) : null,
-                p,
-                p_v,
-                p_h,
-            }
-        })
-    };
-
-    const masterMolangeur = (letters, callback) => {
-        const configuration = initMasterMolangeur(letters);
-        const on_done = (words) => {
-            console.timeEnd("molangeur");
-            callback(words);
-        };
-        console.time("molangeur");
-        launchMasterMolangeur(configuration, on_done);
-    };
-
-
-    const initMasterMolangeur = (letters) => {
-        
-        const fixed_letters = letters.filter(e=>e.board && !e.free);
-        const arr_fixed_letters = buildBoardIndexArray(fixed_letters);
-
-        const free_letters = letters.filter(e=>e.free);
-
-        const valid_cells = findValidCellsAndOrthogonalWords(fixed_letters, arr_fixed_letters);
-        const free_constraints = computeFreeConstrainsOfValidCells(valid_cells, free_letters);
-        const arr_free_constraints = buildBoardIndexArray(free_constraints);
-
-        const words_positions = computeWordPositions(arr_fixed_letters, valid_cells, free_letters.length);
-        
-        return {
-            words_positions,
-            free_letters,
-            arr_fixed_letters,
-            arr_free_constraints
-        }
-        
-    };
-
-    const launchMasterMolangeur = (configuration, callback) => {
-        iteratorMasterMolangeur(0, configuration, [], callback);
-    };
-
-    const iteratorMasterMolangeur = (index, configuration, results, callback) => {
-        if (index >= configuration.words_positions.length) {
-            let words = results.flat().sort((a, b) => {
-                if (a.dir === "V" && b.dir === "H") return 1
-                if (a.dir === "V" && b.dir === "V") return 0
-                if (a.dir === "H" && b.dir === "V") return -1
-                return 0
-            }).sort((a, b) => b.pts - a.pts);
-            // duplicates are due to letters that are in double in the player's rack
-            words = removeDuplicatedWords(words);
-            callback(words);
-        } else {
-            // console.log(`iteration ${index} out of ${configuration.words_positions.length}`)
-            results = [
-                ...results,
-                getPossibleWordsForOneGroup(
-                    configuration.words_positions[index],
-                    configuration.free_letters,
-                    configuration.arr_fixed_letters,
-                    configuration.arr_free_constraints,
-                    configuration.words_positions[index].dir === "V"
-                )
-            ];
-            setTimeout(()=>{
-                iteratorMasterMolangeur(index+1, configuration, results, callback);
-            }, 0);
-        }
-    };
-
-
-    const removeDuplicatedWords = (arr) => {
-        let ids = arr.map(e=>e.word+e.index+e.dir);
-        let unique = [...(new Set(ids))];
-        return arr.filter((e, i) => {
-            let u = unique.indexOf(ids[i]);
-            if (u === -1) {
-                return false
-            } else {
-                unique.splice(u, 1);
-                return true
-            }
-        })
-    };
-
-
-
-
-    const findWords$1 = (letters, min_length, max_length, fixed_constraints, free_constraints) => {
-        const found = [];
-        const getWords = (letters, k=0, dico=DICO, free_letters_used=0, joker_positions=[]) => {
-            if (k <= max_length) { // if too long, end search
-                if (fixed_constraints[k]) { // if fixe letter at this location
-                    // if there are valid words with this letter at this location
-                    // continue search
-                    if (dico[fixed_constraints[k]]) { 
-                        getWords(letters, k+1, dico[fixed_constraints[k]], free_letters_used, joker_positions);
-                    }
-                } else {
-                    if (k>=min_length && dico["$"]) { // if existing long enough word, add it
-                        found.push({word: dico["$"], n: free_letters_used, joker: joker_positions});
-                    }
-                    free_letters_used += 1;
-                    // continue with the remaining letters
-                    for (let i = 0; i<letters.length; i++) {
-                        if (free_constraints[k] && free_constraints[k].indexOf(letters[i])===-1) continue
-                        if (dico[letters[i]]) { // if there are valid word with this letter at this location
-                                let remaining_letters = [...letters.slice(0, i), ...letters.slice(i+1)];
-                                getWords(remaining_letters, k+1,  dico[letters[i]], free_letters_used, joker_positions);
-                        } else if (letters[i] === "_"){ // if it is a joker
-                            // joker_positions = [...joker_positions, k]
-                            for (let j = 0; j < LTRS.length; j++) {
-                                if (dico[LTRS[j]]) {
-                                    let remaining_letters = [...letters.slice(0, i), ...letters.slice(i+1)];
-                                    getWords(remaining_letters, k+1, dico[LTRS[j]], free_letters_used,  [...joker_positions, k]);
-                                }
-                            }
-                        }
-                        
-                    }
-                }
-            }
-        };
-        getWords(letters);
-        return found
-    };
-
-    const computeWordPositions = (board, valid_cell, n_free_letters) => {
-        // a position is valid if:
-        // 1/ it contains a valid cell
-        // 2/ the number of free spot doesn't exceed the number of free letters
-        // 3/ it has an empty cell before and after
-        const filteringFunction = (P) => {
-            let step1 = P.filter(cell_index=>valid_cell.filter(vc=>vc.index===cell_index).length>0).length > 0;
-            let step2 = P.filter(cell_index=>board[cell_index]===null).length <= n_free_letters;
-            let b = MAPPING.NEIGHBORS[P[0]][before];
-            let a = MAPPING.NEIGHBORS[P[P.length-1]][after];
-            let step3 = (b === null || board[b] === null) && (a === null || board[a] === null);
-            return step1 && step2 && step3
-        };
-
-        let before, after;
-        before="top";
-        after="bottom";
-        const V = WORD_POSITIONS.V.map(START_CELL=>{
-            let selected = START_CELL.filter(filteringFunction);
-            if (selected.length === 0) return null
-            return {
-                indices: selected[selected.length - 1],
-                dim: {min: selected[0].length, max: selected[selected.length - 1].length},
-                dir: "V",
-            }
-        }).filter(e=>e!==null);
-        before="left";
-        after="right";
-        const H = WORD_POSITIONS.H.map(START_CELL=>{
-            let selected = START_CELL.filter(filteringFunction);
-            if (selected.length === 0) return null
-            return {
-                indices: selected[selected.length - 1],
-                dim: {min: selected[0].length, max: selected[selected.length - 1].length},
-                dir: "H"
-            }
-        }).filter(e=>e!==null);
-
-        return [...V, ...H]
-    };
-
-
-    const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_letters, arr_free_constraints, vertical=true) => {
-
-        const letters = free_letters.map(e=>e.letter);
-
-        let free_c;
-        if (vertical) {
-            free_c = position_group.indices.map(e=>arr_free_constraints[e] ? arr_free_constraints[e].h : null);
-        } else {
-            free_c = position_group.indices.map(e=>arr_free_constraints[e] ? arr_free_constraints[e].v : null);
-        }
-        let fixed_c = position_group.indices.map(e=>arr_fixed_letters[e] ? arr_fixed_letters[e].letter : null);
-
-        // const found_words = U.unique(findWords(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c).map(e=>e.word))
-        const raw_found_words = findWords$1(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c);
-        const found_words = raw_found_words.map(e=>e.word);
-        const n_letter_used = raw_found_words.map(e=>e.n);
-        const joker_positions = raw_found_words.map(e=>e.joker);
-
-        let pos_multiplier = position_group.indices.map(e=>POINTS[e]);
-        // console.log("-----------------")
-        // console.log("k=", position_group.indices[0])
-        // console.log(position_group)
-        // console.log(raw_found_words)
-        // console.log(pos_multiplier)
-        // console.log(vertical)
-        // console.log(arr_free_constraints)
-        let adjacent_point;
-        if (vertical) {
-            adjacent_point = position_group.indices.map(e=> {
-                if (arr_free_constraints[e]===null || arr_free_constraints[e].h===null) return null
-                let obj = {};
-                arr_free_constraints[e].h.map((l, i)=>obj[l] = arr_free_constraints[e].p_h[i]);
-                return obj
-            });
-        } else {
-            adjacent_point = position_group.indices.map(e=> {
-                if (arr_free_constraints[e]===null || arr_free_constraints[e].v===null) return null
-                let obj = {};
-                arr_free_constraints[e].v.map((l, i)=>obj[l] = arr_free_constraints[e].p_v[i]);
-                return obj
-            });
-        }
-
-        const word_letter_points = found_words.map((w, i)=>{
-            let a = 0;
-            let w_m = 1;
-            let t = 0;
-            for (let k = 0; k<w.length; k++) {
-                let p = (joker_positions[i].indexOf(k) === -1 ? LETTERS[w[k]].pts : 0);
-                if (fixed_c[k]===null) {
-                    p *= pos_multiplier[k].letter_mutliplier;
-                    w_m *= pos_multiplier[k].word_multiplier;
-                } 
-                if (adjacent_point[k]) {
-                    a += adjacent_point[k][w[k]];
-                }
-                t += p;
-            }
-            t *=  w_m; 
-            return t + a + (n_letter_used[i] === 7 ? 50 : 0)
-        });
-
-
-        const output = found_words.map((e, i) => {
-            return {
-                index: position_group.indices[0],
-                word: e,
-                pts: word_letter_points[i],
-                dir: vertical ? "V" : "H",
-                n: n_letter_used[i],
-                joker: joker_positions[i]
-            }
-        });
-        return output
+    const CELLS = {
+        letter_double: [3, 11, 36, 38, 45, 52, 59, 92, 96, 98, 102, 108,
+             116, 122, 126, 128, 132, 165, 172, 179, 186, 188, 213, 221],
+        letter_triple: [20, 24, 76, 80, 84, 88, 136, 140, 144, 148, 200, 204],
+        word_double: [16, 28, 32, 42, 48, 56, 64, 70, 112, 154, 160, 168, 176, 182, 192, 196, 208],
+        word_triple: [0, 7, 14, 105, 119, 210, 217, 224]
     };
 
     let DB;
@@ -1424,7 +1199,15 @@ var app = (function () {
             if (game.gameover) {
                 gameOver();
             } else {
-                masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                // DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                //     if (words.length !== 0) {
+                //         GSI.updateMolangeur(words)
+                //     } else {
+                //         console.error("should no happen")
+                //         gameOver(game)
+                //     }
+                // })
+                molangeur([...game.board, ...game.players[player_index].rack], (words)=>{
                     if (words.length !== 0) {
                         updateMolangeur(words);
                     } else {
@@ -1471,7 +1254,10 @@ var app = (function () {
             GAME.players[0].rack
         );
         // launch master molangeur on the new players game
-        masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
+        // DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
+        //     GSI.updateMolangeur(words)
+        // })
+        molangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
             updateMolangeur(words);
         });
     };
@@ -1529,7 +1315,14 @@ var app = (function () {
                 );
                 // launch master molangeur on the new players game
                 updateMolangeur();
-                masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                // DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
+                //     if (words.length !== 0) {
+                //         GSI.updateMolangeur(words)
+                //     } else {
+                //         gameOver(game)
+                //     }
+                // })
+                molangeur([...game.board, ...game.players[player_index].rack], (words)=>{
                     if (words.length !== 0) {
                         updateMolangeur(words);
                     } else {
@@ -1546,14 +1339,19 @@ var app = (function () {
         game.gameover = true;
         updateGame(game);
     };
+
+    // FIXME: rewrite and refactor this function
+    // I should use the constants more for more efficiency
     const evaluateBoard = (board, free_letters_on_board) => {
+
         // retrieve necessary data
         const fixed_letters = board;
         const board_letters = [...fixed_letters, ...free_letters_on_board];
+        checkBoard(board_letters);
         // these contains the same data but in "board" dimension
         // which makes it easier to access in some cases
-        const arr_board_letters = buildBoardIndexArray(board_letters);
-        const arr_fixed_letters = buildBoardIndexArray(fixed_letters);
+        const arr_board_letters = buildBoardIndexArray$1(board_letters);
+        const arr_fixed_letters = buildBoardIndexArray$1(fixed_letters);
 
         // ------------------------------------------------------------
         // This section deals with the positionning of the new letters
@@ -1584,10 +1382,12 @@ var app = (function () {
 
         if (actual_words.length === 0) return false
 
-        const words_validity = actual_words.map(e=>checkWordValidity(e));
+        // const words_validity = actual_words.map(e=>DICO.checkWordValidity(e))
+        const words_validity = actual_words.map(e=>checkWord(e));
         const is_word_valid = words_validity.reduce((p, c) => p && c, true);
         const words_free_letter_count = new_words.map(e=>e.word.filter(l=>l.free).length);
         const main_word_index = words_free_letter_count.indexOf(Math.max(...words_free_letter_count));
+        // const word_scores = new_words.map(e=>DICO.computeWordScore(e.word))
         const word_scores = new_words.map(e=>computeWordScore(e.word));
         const total_score = word_scores.reduce((p, c)=>p+c, 0);
 
@@ -8976,9 +8776,9 @@ var app = (function () {
 
     /* src\game\LetterLook.svelte generated by Svelte v3.38.2 */
 
-    const file$a = "src\\game\\LetterLook.svelte";
+    const file$b = "src\\game\\LetterLook.svelte";
 
-    function create_fragment$b(ctx) {
+    function create_fragment$c(ctx) {
     	let div;
     	let span0;
     	let t0;
@@ -8999,13 +8799,13 @@ var app = (function () {
     			span1 = element("span");
     			t2 = text(t2_value);
     			attr_dev(span0, "class", "value svelte-f8hqlu");
-    			add_location(span0, file$a, 22, 4, 444);
+    			add_location(span0, file$b, 22, 4, 444);
     			attr_dev(span1, "class", "score svelte-f8hqlu");
-    			add_location(span1, file$a, 25, 4, 501);
+    			add_location(span1, file$b, 25, 4, 501);
     			attr_dev(div, "class", div_class_value = "" + (null_to_empty("letter " + /*classes*/ ctx[4]) + " svelte-f8hqlu"));
     			attr_dev(div, "style", /*styles*/ ctx[5]);
     			attr_dev(div, "cui", /*id*/ ctx[3]);
-    			add_location(div, file$a, 14, 0, 281);
+    			add_location(div, file$b, 14, 0, 281);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -9085,7 +8885,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_fragment$b.name,
+    		id: create_fragment$c.name,
     		type: "component",
     		source: "",
     		ctx
@@ -9094,7 +8894,7 @@ var app = (function () {
     	return block;
     }
 
-    function instance$b($$self, $$props, $$invalidate) {
+    function instance$c($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots("LetterLook", slots, []);
     	let { letter } = $$props;
@@ -9172,7 +8972,7 @@ var app = (function () {
     	constructor(options) {
     		super(options);
 
-    		init$1(this, options, instance$b, create_fragment$b, safe_not_equal, {
+    		init$1(this, options, instance$c, create_fragment$c, safe_not_equal, {
     			letter: 1,
     			value: 2,
     			id: 3,
@@ -9187,7 +8987,7 @@ var app = (function () {
     			component: this,
     			tagName: "LetterLook",
     			options,
-    			id: create_fragment$b.name
+    			id: create_fragment$c.name
     		});
 
     		const { ctx } = this.$$;
@@ -28073,7 +27873,7 @@ var app = (function () {
 
     /* src\game\Letter.svelte generated by Svelte v3.38.2 */
 
-    function create_fragment$a(ctx) {
+    function create_fragment$b(ctx) {
     	let letterlook;
     	let current;
 
@@ -28133,7 +27933,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_fragment$a.name,
+    		id: create_fragment$b.name,
     		type: "component",
     		source: "",
     		ctx
@@ -28142,7 +27942,7 @@ var app = (function () {
     	return block;
     }
 
-    function instance$a($$self, $$props, $$invalidate) {
+    function instance$b($$self, $$props, $$invalidate) {
     	let free;
     	let board;
     	let grab;
@@ -28357,13 +28157,13 @@ var app = (function () {
     class Letter extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init$1(this, options, instance$a, create_fragment$a, safe_not_equal, { game: 6, letter: 0 });
+    		init$1(this, options, instance$b, create_fragment$b, safe_not_equal, { game: 6, letter: 0 });
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
     			tagName: "Letter",
     			options,
-    			id: create_fragment$a.name
+    			id: create_fragment$b.name
     		});
 
     		const { ctx } = this.$$;
@@ -28398,7 +28198,7 @@ var app = (function () {
     /* src\game\Joker.svelte generated by Svelte v3.38.2 */
 
     const { Object: Object_1$3 } = globals;
-    const file$9 = "src\\game\\Joker.svelte";
+    const file$a = "src\\game\\Joker.svelte";
 
     function get_each_context$4(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -28472,7 +28272,7 @@ var app = (function () {
     	return block;
     }
 
-    function create_fragment$9(ctx) {
+    function create_fragment$a(ctx) {
     	let div0;
     	let t0;
     	let div4;
@@ -28523,20 +28323,20 @@ var app = (function () {
     			button1 = element("button");
     			t6 = text("Valider");
     			attr_dev(div0, "class", "overlay svelte-f5oka9");
-    			add_location(div0, file$9, 22, 0, 481);
+    			add_location(div0, file$a, 22, 0, 481);
     			attr_dev(div1, "class", "description svelte-f5oka9");
-    			add_location(div1, file$9, 26, 4, 543);
+    			add_location(div1, file$a, 26, 4, 543);
     			attr_dev(div2, "class", "letters svelte-f5oka9");
-    			add_location(div2, file$9, 29, 4, 657);
+    			add_location(div2, file$a, 29, 4, 657);
     			attr_dev(button0, "class", "svelte-f5oka9");
-    			add_location(button0, file$9, 41, 8, 1000);
+    			add_location(button0, file$a, 41, 8, 1000);
     			button1.disabled = button1_disabled_value = /*selected*/ ctx[2].indexOf(true) === -1;
     			attr_dev(button1, "class", "svelte-f5oka9");
-    			add_location(button1, file$9, 44, 8, 1076);
+    			add_location(button1, file$a, 44, 8, 1076);
     			attr_dev(div3, "class", "actions svelte-f5oka9");
-    			add_location(div3, file$9, 40, 4, 969);
+    			add_location(div3, file$a, 40, 4, 969);
     			attr_dev(div4, "class", "container svelte-f5oka9");
-    			add_location(div4, file$9, 25, 0, 514);
+    			add_location(div4, file$a, 25, 0, 514);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -28644,7 +28444,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_fragment$9.name,
+    		id: create_fragment$a.name,
     		type: "component",
     		source: "",
     		ctx
@@ -28653,7 +28453,7 @@ var app = (function () {
     	return block;
     }
 
-    function instance$9($$self, $$props, $$invalidate) {
+    function instance$a($$self, $$props, $$invalidate) {
     	let selected;
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots("Joker", slots, []);
@@ -28716,13 +28516,13 @@ var app = (function () {
     class Joker extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init$1(this, options, instance$9, create_fragment$9, safe_not_equal, { cancel: 0, validate: 1 });
+    		init$1(this, options, instance$a, create_fragment$a, safe_not_equal, { cancel: 0, validate: 1 });
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
     			tagName: "Joker",
     			options,
-    			id: create_fragment$9.name
+    			id: create_fragment$a.name
     		});
 
     		const { ctx } = this.$$;
@@ -28757,7 +28557,7 @@ var app = (function () {
     /* src\game\BoardOverlay.svelte generated by Svelte v3.38.2 */
 
     const { Object: Object_1$2 } = globals;
-    const file$8 = "src\\game\\BoardOverlay.svelte";
+    const file$9 = "src\\game\\BoardOverlay.svelte";
 
     function get_each_context$3(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -28781,7 +28581,7 @@ var app = (function () {
     }
 
     // (78:4) {#if score_info.valid}
-    function create_if_block_2$2(ctx) {
+    function create_if_block_2$1(ctx) {
     	let div;
     	let span;
     	let t_value = /*score_info*/ ctx[1].score + "";
@@ -28794,14 +28594,14 @@ var app = (function () {
     			div = element("div");
     			span = element("span");
     			t = text(t_value);
-    			add_location(span, file$8, 79, 12, 2744);
+    			add_location(span, file$9, 79, 12, 2744);
 
     			attr_dev(div, "class", div_class_value = "" + (null_to_empty(/*score_info*/ ctx[1].vertical
     			? "score vertical"
     			: "score") + " svelte-1parq7"));
 
     			attr_dev(div, "style", div_style_value = `--x:${/*score_info*/ ctx[1].score_location.x}; --y:${/*score_info*/ ctx[1].score_location.y}`);
-    			add_location(div, file$8, 78, 8, 2587);
+    			add_location(div, file$9, 78, 8, 2587);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -28828,7 +28628,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block_2$2.name,
+    		id: create_if_block_2$1.name,
     		type: "if",
     		source: "(78:4) {#if score_info.valid}",
     		ctx
@@ -28846,7 +28646,7 @@ var app = (function () {
     			div = element("div");
     			div.textContent = "Partie terminée!";
     			attr_dev(div, "class", "gameover svelte-1parq7");
-    			add_location(div, file$8, 85, 8, 2865);
+    			add_location(div, file$9, 85, 8, 2865);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -28868,7 +28668,7 @@ var app = (function () {
     }
 
     // (92:0) {#if joker_picker}
-    function create_if_block$4(ctx) {
+    function create_if_block$5(ctx) {
     	let joker;
     	let current;
 
@@ -28905,7 +28705,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$4.name,
+    		id: create_if_block$5.name,
     		type: "if",
     		source: "(92:0) {#if joker_picker}",
     		ctx
@@ -28981,7 +28781,7 @@ var app = (function () {
     			t = text(t_value);
     			attr_dev(div, "class", "row-col-name svelte-1parq7");
     			attr_dev(div, "style", `--x:${-1.125}; --y:${/*i*/ ctx[14] + 0.25};text-align: right;`);
-    			add_location(div, file$8, 106, 5, 3340);
+    			add_location(div, file$9, 106, 5, 3340);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -29018,7 +28818,7 @@ var app = (function () {
     			t1 = space();
     			attr_dev(div, "class", "row-col-name svelte-1parq7");
     			attr_dev(div, "style", `--x:${/*i*/ ctx[14]}; --y:${-0.5};text-align: center;`);
-    			add_location(div, file$8, 111, 5, 3496);
+    			add_location(div, file$9, 111, 5, 3496);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -29042,7 +28842,7 @@ var app = (function () {
     	return block;
     }
 
-    function create_fragment$8(ctx) {
+    function create_fragment$9(ctx) {
     	let div;
     	let t0;
     	let t1;
@@ -29051,9 +28851,9 @@ var app = (function () {
     	let t4;
     	let each2_anchor;
     	let current;
-    	let if_block0 = /*score_info*/ ctx[1].valid && create_if_block_2$2(ctx);
+    	let if_block0 = /*score_info*/ ctx[1].valid && create_if_block_2$1(ctx);
     	let if_block1 = /*game_over*/ ctx[3] && create_if_block_1$3(ctx);
-    	let if_block2 = /*joker_picker*/ ctx[4] && create_if_block$4(ctx);
+    	let if_block2 = /*joker_picker*/ ctx[4] && create_if_block$5(ctx);
     	let each_value_2 = /*temp_letters*/ ctx[2];
     	validate_each_argument(each_value_2);
     	let each_blocks_2 = [];
@@ -29110,7 +28910,7 @@ var app = (function () {
 
     			each2_anchor = empty();
     			attr_dev(div, "class", "overlay svelte-1parq7");
-    			add_location(div, file$8, 76, 0, 2527);
+    			add_location(div, file$9, 76, 0, 2527);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -29148,7 +28948,7 @@ var app = (function () {
     				if (if_block0) {
     					if_block0.p(ctx, dirty);
     				} else {
-    					if_block0 = create_if_block_2$2(ctx);
+    					if_block0 = create_if_block_2$1(ctx);
     					if_block0.c();
     					if_block0.m(div, t0);
     				}
@@ -29176,7 +28976,7 @@ var app = (function () {
     						transition_in(if_block2, 1);
     					}
     				} else {
-    					if_block2 = create_if_block$4(ctx);
+    					if_block2 = create_if_block$5(ctx);
     					if_block2.c();
     					transition_in(if_block2, 1);
     					if_block2.m(t2.parentNode, t2);
@@ -29305,7 +29105,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_fragment$8.name,
+    		id: create_fragment$9.name,
     		type: "component",
     		source: "",
     		ctx
@@ -29314,7 +29114,7 @@ var app = (function () {
     	return block;
     }
 
-    function instance$8($$self, $$props, $$invalidate) {
+    function instance$9($$self, $$props, $$invalidate) {
     	let score_info;
     	let temp_letters;
     	let game_over;
@@ -29451,13 +29251,13 @@ var app = (function () {
     class BoardOverlay extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init$1(this, options, instance$8, create_fragment$8, safe_not_equal, { game: 0 });
+    		init$1(this, options, instance$9, create_fragment$9, safe_not_equal, { game: 0 });
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
     			tagName: "BoardOverlay",
     			options,
-    			id: create_fragment$8.name
+    			id: create_fragment$9.name
     		});
 
     		const { ctx } = this.$$;
@@ -29478,7 +29278,7 @@ var app = (function () {
     }
 
     /* src\game\Game.svelte generated by Svelte v3.38.2 */
-    const file$7 = "src\\game\\Game.svelte";
+    const file$8 = "src\\game\\Game.svelte";
 
     function get_each_context$2(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -29528,7 +29328,7 @@ var app = (function () {
     			attr_dev(div, "class", "board-cell svelte-d5xu96");
     			attr_dev(div, "style", `--x:${/*getBoardXY*/ ctx[6](/*i*/ ctx[26]).x};--y:${/*getBoardXY*/ ctx[6](/*i*/ ctx[26]).y};`);
     			attr_dev(div, "cid", /*i*/ ctx[26]);
-    			add_location(div, file$7, 95, 16, 3235);
+    			add_location(div, file$8, 95, 16, 3235);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -29577,11 +29377,11 @@ var app = (function () {
     			div0 = element("div");
     			t = space();
     			attr_dev(div0, "class", "rack-decoration svelte-d5xu96");
-    			add_location(div0, file$7, 103, 16, 3645);
+    			add_location(div0, file$8, 103, 16, 3645);
     			attr_dev(div1, "class", "rack-cell svelte-d5xu96");
     			attr_dev(div1, "style", `--pos:${/*getRackPos*/ ctx[7](/*i*/ ctx[26])};`);
     			attr_dev(div1, "cid", /*i*/ ctx[26]);
-    			add_location(div1, file$7, 102, 12, 3547);
+    			add_location(div1, file$8, 102, 12, 3547);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div1, anchor);
@@ -29617,7 +29417,7 @@ var app = (function () {
     }
 
     // (110:8) {#if $GameStateStore}
-    function create_if_block$3(ctx) {
+    function create_if_block$4(ctx) {
     	let div0;
     	let t0;
     	let div1;
@@ -29683,11 +29483,11 @@ var app = (function () {
     			}
 
     			attr_dev(div0, "class", "board-letters-free");
-    			add_location(div0, file$7, 110, 12, 3802);
+    			add_location(div0, file$8, 110, 12, 3802);
     			attr_dev(div1, "class", "board-letters-fixed");
-    			add_location(div1, file$7, 115, 12, 4047);
+    			add_location(div1, file$8, 115, 12, 4047);
     			attr_dev(div2, "class", "rack-letters");
-    			add_location(div2, file$7, 120, 12, 4294);
+    			add_location(div2, file$8, 120, 12, 4294);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -29849,7 +29649,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$3.name,
+    		id: create_if_block$4.name,
     		type: "if",
     		source: "(110:8) {#if $GameStateStore}",
     		ctx
@@ -30011,7 +29811,7 @@ var app = (function () {
     	return block;
     }
 
-    function create_fragment$7(ctx) {
+    function create_fragment$8(ctx) {
     	let div3;
     	let div2;
     	let div0;
@@ -30044,7 +29844,7 @@ var app = (function () {
     		each_blocks[i] = create_each_block_3(get_each_context_3(ctx, each_value_3, i));
     	}
 
-    	let if_block = /*$GameStateStore*/ ctx[5] && create_if_block$3(ctx);
+    	let if_block = /*$GameStateStore*/ ctx[5] && create_if_block$4(ctx);
 
     	const block = {
     		c: function create() {
@@ -30068,14 +29868,14 @@ var app = (function () {
     			t2 = space();
     			if (if_block) if_block.c();
     			attr_dev(div0, "class", "board svelte-d5xu96");
-    			add_location(div0, file$7, 92, 8, 3109);
+    			add_location(div0, file$8, 92, 8, 3109);
     			attr_dev(div1, "class", "rack svelte-d5xu96");
-    			add_location(div1, file$7, 100, 8, 3481);
+    			add_location(div1, file$8, 100, 8, 3481);
     			attr_dev(div2, "class", "game svelte-d5xu96");
-    			add_location(div2, file$7, 91, 4, 3064);
+    			add_location(div2, file$8, 91, 4, 3064);
     			attr_dev(div3, "class", "container svelte-d5xu96");
     			attr_dev(div3, "style", div3_style_value = `--REF-SIZE: ${/*width*/ ctx[0] * 15 / 16}px;--S: ${/*width*/ ctx[0] / 16}px;`);
-    			add_location(div3, file$7, 90, 0, 2954);
+    			add_location(div3, file$8, 90, 0, 2954);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -30161,7 +29961,7 @@ var app = (function () {
     						transition_in(if_block, 1);
     					}
     				} else {
-    					if_block = create_if_block$3(ctx);
+    					if_block = create_if_block$4(ctx);
     					if_block.c();
     					transition_in(if_block, 1);
     					if_block.m(div2, null);
@@ -30204,7 +30004,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_fragment$7.name,
+    		id: create_fragment$8.name,
     		type: "component",
     		source: "",
     		ctx
@@ -30219,7 +30019,7 @@ var app = (function () {
     const func_1 = e => e.board && !e.free;
     const func_2 = e => !e.board;
 
-    function instance$7($$self, $$props, $$invalidate) {
+    function instance$8($$self, $$props, $$invalidate) {
     	let $GameStateStore;
     	validate_store(GameStateStore, "GameStateStore");
     	component_subscribe($$self, GameStateStore, $$value => $$invalidate(5, $GameStateStore = $$value));
@@ -30405,13 +30205,13 @@ var app = (function () {
     class Game$1 extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init$1(this, options, instance$7, create_fragment$7, safe_not_equal, { width: 0 });
+    		init$1(this, options, instance$8, create_fragment$8, safe_not_equal, { width: 0 });
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
     			tagName: "Game",
     			options,
-    			id: create_fragment$7.name
+    			id: create_fragment$8.name
     		});
 
     		const { ctx } = this.$$;
@@ -30433,8 +30233,8 @@ var app = (function () {
 
     /* src\game\MasterMolangeur.svelte generated by Svelte v3.38.2 */
 
-    const { Object: Object_1$1, console: console_1$1 } = globals;
-    const file$6 = "src\\game\\MasterMolangeur.svelte";
+    const { Object: Object_1$1, console: console_1$2 } = globals;
+    const file$7 = "src\\game\\MasterMolangeur.svelte";
 
     function get_each_context$1(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -30444,7 +30244,7 @@ var app = (function () {
     }
 
     // (54:4) {#if has_something_to_show}
-    function create_if_block$2(ctx) {
+    function create_if_block$3(ctx) {
     	let div0;
     	let t0_value = `Maître MoLangeur avait trouvé ${/*words_list*/ ctx[0].length} mots et positions valides: ` + "";
     	let t0;
@@ -30470,9 +30270,9 @@ var app = (function () {
     			}
 
     			attr_dev(div0, "class", "title");
-    			add_location(div0, file$6, 54, 8, 1930);
+    			add_location(div0, file$7, 54, 8, 1930);
     			attr_dev(div1, "class", "best-words-list svelte-vhdfrg");
-    			add_location(div1, file$6, 57, 8, 2075);
+    			add_location(div1, file$7, 57, 8, 2075);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -30521,7 +30321,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$2.name,
+    		id: create_if_block$3.name,
     		type: "if",
     		source: "(54:4) {#if has_something_to_show}",
     		ctx
@@ -30531,14 +30331,14 @@ var app = (function () {
     }
 
     // (70:20) {:else}
-    function create_else_block$3(ctx) {
+    function create_else_block$4(ctx) {
     	let div;
 
     	const block = {
     		c: function create() {
     			div = element("div");
     			attr_dev(div, "class", "pos-h svelte-vhdfrg");
-    			add_location(div, file$6, 70, 24, 2610);
+    			add_location(div, file$7, 70, 24, 2610);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -30550,7 +30350,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_else_block$3.name,
+    		id: create_else_block$4.name,
     		type: "else",
     		source: "(70:20) {:else}",
     		ctx
@@ -30567,7 +30367,7 @@ var app = (function () {
     		c: function create() {
     			div = element("div");
     			attr_dev(div, "class", "pos-v svelte-vhdfrg");
-    			add_location(div, file$6, 68, 24, 2530);
+    			add_location(div, file$7, 68, 24, 2530);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -30610,7 +30410,7 @@ var app = (function () {
 
     	function select_block_type(ctx, dirty) {
     		if (/*word*/ ctx[10].dir === "V") return create_if_block_1$2;
-    		return create_else_block$3;
+    		return create_else_block$4;
     	}
 
     	let current_block_type = select_block_type(ctx);
@@ -30639,15 +30439,15 @@ var app = (function () {
     			t5 = text(t5_value);
     			t6 = space();
     			attr_dev(span0, "class", "crd");
-    			add_location(span0, file$6, 72, 20, 2684);
+    			add_location(span0, file$7, 72, 20, 2684);
     			attr_dev(span1, "class", "wrd svelte-vhdfrg");
-    			add_location(span1, file$6, 75, 20, 2809);
+    			add_location(span1, file$7, 75, 20, 2809);
     			attr_dev(span2, "class", "pts svelte-vhdfrg");
-    			add_location(span2, file$6, 78, 20, 2915);
+    			add_location(span2, file$7, 78, 20, 2915);
     			attr_dev(div, "class", "word svelte-vhdfrg");
     			attr_dev(div, "tabindex", "0");
     			attr_dev(div, "selected", div_selected_value = /*i*/ ctx[12] === /*selected*/ ctx[1] ? "true" : "false");
-    			add_location(div, file$6, 59, 16, 2165);
+    			add_location(div, file$7, 59, 16, 2165);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -30714,16 +30514,16 @@ var app = (function () {
     	return block;
     }
 
-    function create_fragment$6(ctx) {
+    function create_fragment$7(ctx) {
     	let div;
-    	let if_block = /*has_something_to_show*/ ctx[2] && create_if_block$2(ctx);
+    	let if_block = /*has_something_to_show*/ ctx[2] && create_if_block$3(ctx);
 
     	const block = {
     		c: function create() {
     			div = element("div");
     			if (if_block) if_block.c();
     			attr_dev(div, "class", "container svelte-vhdfrg");
-    			add_location(div, file$6, 52, 0, 1864);
+    			add_location(div, file$7, 52, 0, 1864);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -30737,7 +30537,7 @@ var app = (function () {
     				if (if_block) {
     					if_block.p(ctx, dirty);
     				} else {
-    					if_block = create_if_block$2(ctx);
+    					if_block = create_if_block$3(ctx);
     					if_block.c();
     					if_block.m(div, null);
     				}
@@ -30756,7 +30556,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_fragment$6.name,
+    		id: create_fragment$7.name,
     		type: "component",
     		source: "",
     		ctx
@@ -30765,7 +30565,7 @@ var app = (function () {
     	return block;
     }
 
-    function instance$6($$self, $$props, $$invalidate) {
+    function instance$7($$self, $$props, $$invalidate) {
     	let words_list;
     	let selected;
     	let has_something_to_show;
@@ -30815,7 +30615,7 @@ var app = (function () {
     	const writable_props = [];
 
     	Object_1$1.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1$1.warn(`<MasterMolangeur> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1$2.warn(`<MasterMolangeur> was created with unknown prop '${key}'`);
     	});
 
     	const mouseover_handler = i => showWord(i);
@@ -30883,31 +30683,30 @@ var app = (function () {
     class MasterMolangeur extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init$1(this, options, instance$6, create_fragment$6, safe_not_equal, {});
+    		init$1(this, options, instance$7, create_fragment$7, safe_not_equal, {});
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
     			tagName: "MasterMolangeur",
     			options,
-    			id: create_fragment$6.name
+    			id: create_fragment$7.name
     		});
     	}
     }
 
-    /* src\game\Buttons.svelte generated by Svelte v3.38.2 */
+    /* src\game\Dico.svelte generated by Svelte v3.38.2 */
+    const file$6 = "src\\game\\Dico.svelte";
 
-    const file$5 = "src\\game\\Buttons.svelte";
-
-    // (50:8) {:else}
-    function create_else_block_1(ctx) {
+    // (37:4) {:else}
+    function create_else_block$3(ctx) {
     	let div;
 
     	const block = {
     		c: function create() {
     			div = element("div");
     			div.textContent = "Mot non valide";
-    			attr_dev(div, "class", "result invalid svelte-57msys");
-    			add_location(div, file$5, 50, 12, 1698);
+    			attr_dev(div, "class", "result invalid svelte-75wsvt");
+    			add_location(div, file$6, 37, 8, 1270);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -30919,25 +30718,25 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_else_block_1.name,
+    		id: create_else_block$3.name,
     		type: "else",
-    		source: "(50:8) {:else}",
+    		source: "(37:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (46:41) 
-    function create_if_block_2$1(ctx) {
+    // (33:37) 
+    function create_if_block_1$1(ctx) {
     	let div;
 
     	const block = {
     		c: function create() {
     			div = element("div");
     			div.textContent = "Mot valide";
-    			attr_dev(div, "class", "result valid svelte-57msys");
-    			add_location(div, file$5, 46, 12, 1593);
+    			attr_dev(div, "class", "result valid svelte-75wsvt");
+    			add_location(div, file$6, 33, 8, 1181);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div, anchor);
@@ -30949,17 +30748,17 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block_2$1.name,
+    		id: create_if_block_1$1.name,
     		type: "if",
-    		source: "(46:41) ",
+    		source: "(33:37) ",
     		ctx
     	});
 
     	return block;
     }
 
-    // (44:8) {#if dictionnary_valid_word===null }
-    function create_if_block_1$1(ctx) {
+    // (31:4) {#if dictionnary_valid_word === null }
+    function create_if_block$2(ctx) {
     	let t_value = "" + "";
     	let t;
 
@@ -30977,16 +30776,172 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block_1$1.name,
+    		id: create_if_block$2.name,
     		type: "if",
-    		source: "(44:8) {#if dictionnary_valid_word===null }",
+    		source: "(31:4) {#if dictionnary_valid_word === null }",
     		ctx
     	});
 
     	return block;
     }
 
-    // (62:4) {:else}
+    function create_fragment$6(ctx) {
+    	let div;
+    	let input;
+    	let t;
+    	let mounted;
+    	let dispose;
+
+    	function select_block_type(ctx, dirty) {
+    		if (/*dictionnary_valid_word*/ ctx[0] === null) return create_if_block$2;
+    		if (/*dictionnary_valid_word*/ ctx[0]) return create_if_block_1$1;
+    		return create_else_block$3;
+    	}
+
+    	let current_block_type = select_block_type(ctx);
+    	let if_block = current_block_type(ctx);
+
+    	const block = {
+    		c: function create() {
+    			div = element("div");
+    			input = element("input");
+    			t = space();
+    			if_block.c();
+    			attr_dev(input, "type", "text");
+    			attr_dev(input, "placeholder", "Dictionnaire");
+    			attr_dev(input, "onkeypress", "return (event.key.length === 1 && /[A-Za-zéèëêîïûôâàç]/.test(event.key))");
+    			attr_dev(input, "class", "svelte-75wsvt");
+    			add_location(input, file$6, 29, 4, 886);
+    			attr_dev(div, "class", "container");
+    			add_location(div, file$6, 28, 0, 857);
+    		},
+    		l: function claim(nodes) {
+    			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+    		},
+    		m: function mount(target, anchor) {
+    			insert_dev(target, div, anchor);
+    			append_dev(div, input);
+    			set_input_value(input, /*word_to_check*/ ctx[1]);
+    			append_dev(div, t);
+    			if_block.m(div, null);
+
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(input, "input", /*input_input_handler*/ ctx[3]),
+    					listen_dev(input, "keyup", /*checkWordValidity*/ ctx[2], false, false, false)
+    				];
+
+    				mounted = true;
+    			}
+    		},
+    		p: function update(ctx, [dirty]) {
+    			if (dirty & /*word_to_check*/ 2 && input.value !== /*word_to_check*/ ctx[1]) {
+    				set_input_value(input, /*word_to_check*/ ctx[1]);
+    			}
+
+    			if (current_block_type !== (current_block_type = select_block_type(ctx))) {
+    				if_block.d(1);
+    				if_block = current_block_type(ctx);
+
+    				if (if_block) {
+    					if_block.c();
+    					if_block.m(div, null);
+    				}
+    			}
+    		},
+    		i: noop,
+    		o: noop,
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(div);
+    			if_block.d();
+    			mounted = false;
+    			run_all(dispose);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_fragment$6.name,
+    		type: "component",
+    		source: "",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    function instance$6($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("Dico", slots, []);
+    	let dictionnary_valid_word = null;
+    	let word_to_check = "";
+
+    	const checkWordValidity = () => {
+    		// if (DICO) {
+    		let w;
+
+    		if (word_to_check.length > 1) {
+    			// source: https://stackoverflow.com/a/37511463
+    			w = word_to_check.normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
+
+    			// dictionnary_valid_word = checkWordValidity(w)
+    			$$invalidate(0, dictionnary_valid_word = checkWord(w));
+    		} else {
+    			$$invalidate(0, dictionnary_valid_word = null);
+    		}
+    	}; // } else {
+    	//     dictionnary_valid_word = undefined
+    	// }
+
+    	const writable_props = [];
+
+    	Object.keys($$props).forEach(key => {
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Dico> was created with unknown prop '${key}'`);
+    	});
+
+    	function input_input_handler() {
+    		word_to_check = this.value;
+    		$$invalidate(1, word_to_check);
+    	}
+
+    	$$self.$capture_state = () => ({
+    		checkWord,
+    		dictionnary_valid_word,
+    		word_to_check,
+    		checkWordValidity
+    	});
+
+    	$$self.$inject_state = $$props => {
+    		if ("dictionnary_valid_word" in $$props) $$invalidate(0, dictionnary_valid_word = $$props.dictionnary_valid_word);
+    		if ("word_to_check" in $$props) $$invalidate(1, word_to_check = $$props.word_to_check);
+    	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [dictionnary_valid_word, word_to_check, checkWordValidity, input_input_handler];
+    }
+
+    class Dico extends SvelteComponentDev {
+    	constructor(options) {
+    		super(options);
+    		init$1(this, options, instance$6, create_fragment$6, safe_not_equal, {});
+
+    		dispatch_dev("SvelteRegisterComponent", {
+    			component: this,
+    			tagName: "Dico",
+    			options,
+    			id: create_fragment$6.name
+    		});
+    	}
+    }
+
+    /* src\game\Buttons.svelte generated by Svelte v3.38.2 */
+
+    const file$5 = "src\\game\\Buttons.svelte";
+
+    // (35:4) {:else}
     function create_else_block$2(ctx) {
     	let button;
     	let mounted;
@@ -30997,14 +30952,14 @@ var app = (function () {
     			button = element("button");
     			button.textContent = "Soumettre";
     			button.disabled = true;
-    			attr_dev(button, "class", "svelte-57msys");
-    			add_location(button, file$5, 62, 8, 2081);
+    			attr_dev(button, "class", "svelte-3uomgo");
+    			add_location(button, file$5, 35, 8, 1061);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
 
     			if (!mounted) {
-    				dispose = listen_dev(button, "click", /*play*/ ctx[4], false, false, false);
+    				dispose = listen_dev(button, "click", /*play*/ ctx[1], false, false, false);
     				mounted = true;
     			}
     		},
@@ -31020,14 +30975,14 @@ var app = (function () {
     		block,
     		id: create_else_block$2.name,
     		type: "else",
-    		source: "(62:4) {:else}",
+    		source: "(35:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (60:4) {#if word_submission_possible}
+    // (33:4) {#if word_submission_possible}
     function create_if_block$1(ctx) {
     	let button;
     	let mounted;
@@ -31037,14 +30992,14 @@ var app = (function () {
     		c: function create() {
     			button = element("button");
     			button.textContent = "Soumettre";
-    			attr_dev(button, "class", "svelte-57msys");
-    			add_location(button, file$5, 60, 8, 2016);
+    			attr_dev(button, "class", "svelte-3uomgo");
+    			add_location(button, file$5, 33, 8, 996);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, button, anchor);
 
     			if (!mounted) {
-    				dispose = listen_dev(button, "click", /*play*/ ctx[4], false, false, false);
+    				dispose = listen_dev(button, "click", /*play*/ ctx[1], false, false, false);
     				mounted = true;
     			}
     		},
@@ -31060,7 +31015,7 @@ var app = (function () {
     		block,
     		id: create_if_block$1.name,
     		type: "if",
-    		source: "(60:4) {#if word_submission_possible}",
+    		source: "(33:4) {#if word_submission_possible}",
     		ctx
     	});
 
@@ -31068,117 +31023,83 @@ var app = (function () {
     }
 
     function create_fragment$5(ctx) {
-    	let div1;
-    	let div0;
-    	let input;
+    	let div;
+    	let dico;
     	let t0;
-    	let t1;
     	let button;
-    	let t3;
+    	let t2;
+    	let current;
     	let mounted;
     	let dispose;
+    	dico = new Dico({ $$inline: true });
 
     	function select_block_type(ctx, dirty) {
-    		if (/*dictionnary_valid_word*/ ctx[0] === null) return create_if_block_1$1;
-    		if (/*dictionnary_valid_word*/ ctx[0]) return create_if_block_2$1;
-    		return create_else_block_1;
-    	}
-
-    	let current_block_type = select_block_type(ctx);
-    	let if_block0 = current_block_type(ctx);
-
-    	function select_block_type_1(ctx, dirty) {
-    		if (/*word_submission_possible*/ ctx[1]) return create_if_block$1;
+    		if (/*word_submission_possible*/ ctx[0]) return create_if_block$1;
     		return create_else_block$2;
     	}
 
-    	let current_block_type_1 = select_block_type_1(ctx);
-    	let if_block1 = current_block_type_1(ctx);
+    	let current_block_type = select_block_type(ctx);
+    	let if_block = current_block_type(ctx);
 
     	const block = {
     		c: function create() {
-    			div1 = element("div");
-    			div0 = element("div");
-    			input = element("input");
+    			div = element("div");
+    			create_component(dico.$$.fragment);
     			t0 = space();
-    			if_block0.c();
-    			t1 = space();
     			button = element("button");
     			button.textContent = "Ramener les lettres";
-    			t3 = space();
-    			if_block1.c();
-    			attr_dev(input, "type", "text");
-    			attr_dev(input, "placeholder", "Dictionnaire");
-    			attr_dev(input, "onkeypress", "return (event.key.length === 1 && /[A-Za-zéèëêîïûôâàç]/.test(event.key))");
-    			attr_dev(input, "class", "svelte-57msys");
-    			add_location(input, file$5, 42, 8, 1292);
-    			attr_dev(div0, "class", "dico");
-    			add_location(div0, file$5, 41, 4, 1264);
-    			attr_dev(button, "class", "svelte-57msys");
-    			add_location(button, file$5, 58, 4, 1898);
-    			attr_dev(div1, "class", "action svelte-57msys");
-    			add_location(div1, file$5, 40, 0, 1237);
+    			t2 = space();
+    			if_block.c();
+    			attr_dev(button, "class", "svelte-3uomgo");
+    			add_location(button, file$5, 31, 4, 878);
+    			attr_dev(div, "class", "action svelte-3uomgo");
+    			add_location(div, file$5, 29, 0, 837);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
     		},
     		m: function mount(target, anchor) {
-    			insert_dev(target, div1, anchor);
-    			append_dev(div1, div0);
-    			append_dev(div0, input);
-    			set_input_value(input, /*word_to_check*/ ctx[2]);
-    			append_dev(div0, t0);
-    			if_block0.m(div0, null);
-    			append_dev(div1, t1);
-    			append_dev(div1, button);
-    			append_dev(div1, t3);
-    			if_block1.m(div1, null);
+    			insert_dev(target, div, anchor);
+    			mount_component(dico, div, null);
+    			append_dev(div, t0);
+    			append_dev(div, button);
+    			append_dev(div, t2);
+    			if_block.m(div, null);
+    			current = true;
 
     			if (!mounted) {
-    				dispose = [
-    					listen_dev(input, "input", /*input_input_handler*/ ctx[6]),
-    					listen_dev(input, "keyup", /*checkWord*/ ctx[3], false, false, false),
-    					listen_dev(button, "click", moveAllFreeLettersToRack, false, false, false)
-    				];
-
+    				dispose = listen_dev(button, "click", moveAllFreeLettersToRack, false, false, false);
     				mounted = true;
     			}
     		},
     		p: function update(ctx, [dirty]) {
-    			if (dirty & /*word_to_check*/ 4 && input.value !== /*word_to_check*/ ctx[2]) {
-    				set_input_value(input, /*word_to_check*/ ctx[2]);
-    			}
-
-    			if (current_block_type !== (current_block_type = select_block_type(ctx))) {
-    				if_block0.d(1);
-    				if_block0 = current_block_type(ctx);
-
-    				if (if_block0) {
-    					if_block0.c();
-    					if_block0.m(div0, null);
-    				}
-    			}
-
-    			if (current_block_type_1 === (current_block_type_1 = select_block_type_1(ctx)) && if_block1) {
-    				if_block1.p(ctx, dirty);
+    			if (current_block_type === (current_block_type = select_block_type(ctx)) && if_block) {
+    				if_block.p(ctx, dirty);
     			} else {
-    				if_block1.d(1);
-    				if_block1 = current_block_type_1(ctx);
+    				if_block.d(1);
+    				if_block = current_block_type(ctx);
 
-    				if (if_block1) {
-    					if_block1.c();
-    					if_block1.m(div1, null);
+    				if (if_block) {
+    					if_block.c();
+    					if_block.m(div, null);
     				}
     			}
     		},
-    		i: noop,
-    		o: noop,
+    		i: function intro(local) {
+    			if (current) return;
+    			transition_in(dico.$$.fragment, local);
+    			current = true;
+    		},
+    		o: function outro(local) {
+    			transition_out(dico.$$.fragment, local);
+    			current = false;
+    		},
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(div1);
-    			if_block0.d();
-    			if_block1.d();
+    			if (detaching) detach_dev(div);
+    			destroy_component(dico);
+    			if_block.d();
     			mounted = false;
-    			run_all(dispose);
+    			dispose();
     		}
     	};
 
@@ -31196,25 +31117,10 @@ var app = (function () {
     function instance$5($$self, $$props, $$invalidate) {
     	let $GameStateStore;
     	validate_store(GameStateStore, "GameStateStore");
-    	component_subscribe($$self, GameStateStore, $$value => $$invalidate(5, $GameStateStore = $$value));
+    	component_subscribe($$self, GameStateStore, $$value => $$invalidate(2, $GameStateStore = $$value));
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots("Buttons", slots, []);
-    	let dictionnary_valid_word = null;
     	let word_submission_possible = false;
-    	let word_to_check;
-
-    	const checkWord = () => {
-    		let w;
-
-    		if (word_to_check.length > 1) {
-    			// source: https://stackoverflow.com/a/37511463
-    			w = word_to_check.normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
-
-    			$$invalidate(0, dictionnary_valid_word = checkWordValidity(w));
-    		} else {
-    			$$invalidate(0, dictionnary_valid_word = null);
-    		}
-    	};
 
     	const play = () => {
     		askForWordSubmission($GameStateStore.id, $GameStateStore.player_id);
@@ -31226,29 +31132,19 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Buttons> was created with unknown prop '${key}'`);
     	});
 
-    	function input_input_handler() {
-    		word_to_check = this.value;
-    		$$invalidate(2, word_to_check);
-    	}
-
     	$$self.$capture_state = () => ({
     		GameStateStore,
-    		checkWordValidity,
+    		Dico,
     		moveAllFreeLettersToRack,
     		askForWordSubmission,
     		askForNewGame,
-    		dictionnary_valid_word,
     		word_submission_possible,
-    		word_to_check,
-    		checkWord,
     		play,
     		$GameStateStore
     	});
 
     	$$self.$inject_state = $$props => {
-    		if ("dictionnary_valid_word" in $$props) $$invalidate(0, dictionnary_valid_word = $$props.dictionnary_valid_word);
-    		if ("word_submission_possible" in $$props) $$invalidate(1, word_submission_possible = $$props.word_submission_possible);
-    		if ("word_to_check" in $$props) $$invalidate(2, word_to_check = $$props.word_to_check);
+    		if ("word_submission_possible" in $$props) $$invalidate(0, word_submission_possible = $$props.word_submission_possible);
     	};
 
     	if ($$props && "$$inject" in $$props) {
@@ -31256,28 +31152,20 @@ var app = (function () {
     	}
 
     	$$self.$$.update = () => {
-    		if ($$self.$$.dirty & /*$GameStateStore*/ 32) {
+    		if ($$self.$$.dirty & /*$GameStateStore*/ 4) {
     			{
     				if ($GameStateStore) {
     					if ($GameStateStore.evaluation && $GameStateStore.evaluation.is_position_valid && $GameStateStore.evaluation.is_word_valid) {
-    						$$invalidate(1, word_submission_possible = true);
+    						$$invalidate(0, word_submission_possible = true);
     					} else {
-    						$$invalidate(1, word_submission_possible = false);
+    						$$invalidate(0, word_submission_possible = false);
     					}
     				}
     			}
     		}
     	};
 
-    	return [
-    		dictionnary_valid_word,
-    		word_submission_possible,
-    		word_to_check,
-    		checkWord,
-    		play,
-    		$GameStateStore,
-    		input_input_handler
-    	];
+    	return [word_submission_possible, play, $GameStateStore];
     }
 
     class Buttons extends SvelteComponentDev {
@@ -31296,7 +31184,7 @@ var app = (function () {
 
     /* src\game\Info.svelte generated by Svelte v3.38.2 */
 
-    const { console: console_1 } = globals;
+    const { console: console_1$1 } = globals;
     const file$4 = "src\\game\\Info.svelte";
 
     function create_fragment$4(ctx) {
@@ -31441,7 +31329,7 @@ var app = (function () {
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1.warn(`<Info> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1$1.warn(`<Info> was created with unknown prop '${key}'`);
     	});
 
     	$$self.$capture_state = () => ({
@@ -32105,6 +31993,8 @@ var app = (function () {
     }
 
     /* src\welcom\WelcomPage.svelte generated by Svelte v3.38.2 */
+
+    const { console: console_1 } = globals;
     const file$1 = "src\\welcom\\WelcomPage.svelte";
 
     function get_each_context(ctx, list, i) {
@@ -32113,7 +32003,7 @@ var app = (function () {
     	return child_ctx;
     }
 
-    // (50:4) {:else}
+    // (51:4) {:else}
     function create_else_block$1(ctx) {
     	let span;
 
@@ -32122,7 +32012,7 @@ var app = (function () {
     			span = element("span");
     			span.textContent = "Aucune partie... Crée une partie ci-dessus pour commencer à jouer.\r\n         ";
     			attr_dev(span, "class", "nogame svelte-1lgk43c");
-    			add_location(span, file$1, 50, 9, 1446);
+    			add_location(span, file$1, 51, 9, 1548);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, span, anchor);
@@ -32136,14 +32026,14 @@ var app = (function () {
     		block,
     		id: create_else_block$1.name,
     		type: "else",
-    		source: "(50:4) {:else}",
+    		source: "(51:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (48:4) {#each game_list as game}
+    // (49:4) {#each game_list as game}
     function create_each_block(ctx) {
     	let game;
     	let current;
@@ -32189,7 +32079,7 @@ var app = (function () {
     		block,
     		id: create_each_block.name,
     		type: "each",
-    		source: "(48:4) {#each game_list as game}",
+    		source: "(49:4) {#each game_list as game}",
     		ctx
     	});
 
@@ -32263,23 +32153,23 @@ var app = (function () {
     			}
 
     			attr_dev(p0, "class", "bold svelte-1lgk43c");
-    			add_location(p0, file$1, 25, 8, 564);
-    			add_location(p1, file$1, 28, 8, 643);
+    			add_location(p0, file$1, 26, 8, 666);
+    			add_location(p1, file$1, 29, 8, 745);
     			attr_dev(div0, "class", "intro svelte-1lgk43c");
-    			add_location(div0, file$1, 24, 4, 535);
+    			add_location(div0, file$1, 25, 4, 637);
     			attr_dev(button0, "class", "svelte-1lgk43c");
-    			add_location(button0, file$1, 35, 8, 944);
+    			add_location(button0, file$1, 36, 8, 1046);
     			button1.disabled = true;
     			attr_dev(button1, "class", "svelte-1lgk43c");
-    			add_location(button1, file$1, 38, 8, 1055);
+    			add_location(button1, file$1, 39, 8, 1157);
     			attr_dev(div1, "class", "new-games svelte-1lgk43c");
-    			add_location(div1, file$1, 34, 4, 911);
+    			add_location(div1, file$1, 35, 4, 1013);
     			attr_dev(div2, "class", "game-list-header svelte-1lgk43c");
-    			add_location(div2, file$1, 44, 8, 1190);
+    			add_location(div2, file$1, 45, 8, 1292);
     			attr_dev(div3, "class", "game-list");
-    			add_location(div3, file$1, 43, 4, 1157);
+    			add_location(div3, file$1, 44, 4, 1259);
     			attr_dev(div4, "class", "container svelte-1lgk43c");
-    			add_location(div4, file$1, 23, 0, 506);
+    			add_location(div4, file$1, 24, 0, 608);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -32420,7 +32310,8 @@ var app = (function () {
 
     	const getGameList = () => {
     		getAllGames(list => {
-    			$$invalidate(1, game_list = list);
+    			list.map(e => console.log(e.update_date));
+    			$$invalidate(1, game_list = [...list.sort((a, b) => a.update_date <= b.update_date)]);
     		});
     	};
 
@@ -32428,7 +32319,7 @@ var app = (function () {
     	const writable_props = ["launchGame"];
 
     	Object.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<WelcomPage> was created with unknown prop '${key}'`);
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1.warn(`<WelcomPage> was created with unknown prop '${key}'`);
     	});
 
     	$$self.$$set = $$props => {
@@ -32474,7 +32365,7 @@ var app = (function () {
     		const props = options.props || {};
 
     		if (/*launchGame*/ ctx[0] === undefined && !("launchGame" in props)) {
-    			console.warn("<WelcomPage> was created without expected prop 'launchGame'");
+    			console_1.warn("<WelcomPage> was created without expected prop 'launchGame'");
     		}
     	}
 
@@ -32531,17 +32422,17 @@ var app = (function () {
     			div2 = element("div");
     			if (if_block) if_block.c();
     			attr_dev(div0, "class", "navigation-toggle svelte-1tkhkkn");
-    			add_location(div0, file, 35, 8, 861);
+    			add_location(div0, file, 35, 8, 872);
     			if (img.src !== (img_src_value = "../images/molangeur-h_2.png")) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-1tkhkkn");
-    			add_location(img, file, 38, 8, 932);
+    			add_location(img, file, 38, 8, 943);
     			attr_dev(div1, "class", "header-navigation svelte-1tkhkkn");
-    			add_location(div1, file, 34, 4, 820);
+    			add_location(div1, file, 34, 4, 831);
     			attr_dev(div2, "class", "content svelte-1tkhkkn");
-    			add_location(div2, file, 42, 4, 1053);
+    			add_location(div2, file, 42, 4, 1064);
     			attr_dev(div3, "class", "container svelte-1tkhkkn");
-    			add_location(div3, file, 33, 0, 791);
+    			add_location(div3, file, 33, 0, 802);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div3, anchor);
@@ -32648,12 +32539,12 @@ var app = (function () {
     			t1 = space();
     			p1 = element("p");
     			p1.textContent = "Veuillez patienter quelques instants...";
-    			add_location(p0, file, 28, 12, 662);
-    			add_location(p1, file, 29, 12, 705);
+    			add_location(p0, file, 28, 12, 673);
+    			add_location(p1, file, 29, 12, 716);
     			attr_dev(div0, "class", "svelte-1tkhkkn");
-    			add_location(div0, file, 27, 8, 643);
+    			add_location(div0, file, 27, 8, 654);
     			attr_dev(div1, "class", "loading svelte-1tkhkkn");
-    			add_location(div1, file, 26, 5, 612);
+    			add_location(div1, file, 26, 5, 623);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div1, anchor);
@@ -32865,14 +32756,13 @@ var app = (function () {
     	validate_slots("App", slots, []);
     	let page = "welcom";
     	let game_id = null;
-    	let app_ready_steps = { dico: false, db: false };
+    	let app_ready_steps = { dico: true, db: false };
 
     	// let 
-    	initDictionnary(() => {
-    		// app_ready = true
-    		$$invalidate(3, app_ready_steps.dico = true, app_ready_steps);
-    	});
-
+    	// initDictionnary(()=>{
+    	//     // app_ready = true
+    	//     app_ready_steps.dico = true
+    	// })
     	initDatabase(() => {
     		$$invalidate(3, app_ready_steps.db = true, app_ready_steps);
     	}); // close()
@@ -32937,8 +32827,8 @@ var app = (function () {
     	}
     }
 
-    // import makeDictionnary from "./make_dictionnary"
     // makeDictionnary()
+    initMolangeur(()=>console.log("molangeur was initialized"));
 
     const app = new App({
     	target: document.body,
