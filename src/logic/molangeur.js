@@ -70,26 +70,26 @@ export const molangeur = (letters, callback) => {
 }
 
 export const checkBoard = (letters) => {
-    const submitted_letters = letters.filter(e=>e.board && e.free)
-    const existing_letters = letters.filter(e=>e.board && !e.free)
-    const existing_letters_arr = buildBoardIndexArray(existing_letters)
+    // const submitted_letters = letters.filter(e=>e.board && e.free)
+    // const existing_letters = letters.filter(e=>e.board && !e.free)
+    // const existing_letters_arr = buildBoardIndexArray(existing_letters)
 
-    // for each submitted letter, see if it is on center cell or has a neighor
-    // let res = submitted_letters.map(e=> {
-    //     // return MAPPING.NEIGHBORS[e.index]
-    //     let neighbors =  MAPPING.NEIGHBORS[e.index]
-
-    //         existing_letters_arr[neighbors.top] || existing_letters_arr[i].left ||
-    //         existing_letters_arr[i].right || existing_letters_arr[i].bottom
-    //     }).length
-    // })
+    // // for each submitted letter, see if it is on center cell or has a neighor
+    // const row_col = submitted_letters.sort((a, b)=>a.index - b.index).map(e=> MAPPING.FROM_INDEX[e.index])
+    // // const n_row_col = {row: unique(row_col.map(e=>e.row)).length, col: unique(row_col.map(e=>e.col)).length}
+    // // const is_word_horizontal = n_row_col.row === 1
+    // const is_word_horizontal = unique(submitted_letters.sort((a, b)=>a.index - b.index)
+    //     .map(e=> MAPPING.FROM_INDEX[e.index].row)).length === 1
     // console.log("***********************************")
     // console.log(submitted_letters)
     // console.log(existing_letters)
-    // console.log(res)
+    // console.log(is_word_horizontal)
 }
 
-
+const unique = (arr) => {
+    let s = new Set(arr)
+    return [...s]
+}
 const buildBoardIndexArray = (letters) => {
     let arr = Array(15 * 15).fill(null)
     letters.map(e=>arr[e.index] = e)
