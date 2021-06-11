@@ -2,6 +2,7 @@
     
     import {afterUpdate} from "svelte"
     import html2canvas from "html2canvas"
+    import domtoimage from "dom-to-image"
     import {newGameImagePreviewUpdate} from "./GameStateInterface"
 
     import {GameStateStore} from "./GameStore"
@@ -12,18 +13,50 @@
 
     // import {onMount} from "svelte"
     export let width;
-    let game, container
+    let game, container, rack_element
 
     afterUpdate(()=>{
         if ($GameStateStore && $GameStateStore.image_preview_needed) {
             GameStateStore.setNeedForNewImagePreview(false)
             // let img = document.querySelector("#html-2-canvas")
-            html2canvas(container, {
-                backgroundColor: null, logging: false, scrollY: -window.scrollY
-            }).then(function(canvas) {
-                let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
-                newGameImagePreviewUpdate($GameStateStore.id, image_data)
-            });
+            // html2canvas(container, {
+            //     backgroundColor: null,
+            //     // logging: true,
+            //     scale: 0.5,
+            //     scrollY: -window.scrollY,
+            //     // onclone: (e)=>{
+            //     //     console.log(e)
+            //     //     console.log(e.querySelector(".rack").hidden=true)
+            //     //     return e
+            //     // }
+            // }).then(function(canvas) {
+            //     let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
+            //     newGameImagePreviewUpdate($GameStateStore.id, image_data)
+            //     console.log("done")
+            // });
+            console.time("dom-to-image")
+            domtoimage.toPng(container, {
+                filter: (node) => {
+                    // if (node.className) {
+                    //     let a = node.className+""
+                    //     if (a.startsWith("rack")) {
+                    //         return false
+                    //     } 
+                    // }
+                    return true
+                }
+            }).then((dataUrl)=>{
+            // domtoimage.toSvg(container).then((dataUrl)=>{
+                // var link = document.createElement('a');
+                // link.download = 'my-image-name.jpeg';
+                // link.href = dataUrl;
+                // link.click();
+                // let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
+                console.log(dataUrl)
+                console.timeEnd("dom-to-image")
+                newGameImagePreviewUpdate($GameStateStore.id, dataUrl)
+                console.log("done")
+            })
         }
         
     })
@@ -98,7 +131,7 @@
                 </div>
             {/each}
         </div>
-        <div class="rack">
+        <div class="rack" id="rack" bind:this={rack_element}>
             {#each rack as e, i}
             <div class="rack-cell"  bind:this={e} style={`--pos:${getRackPos(i)};`} cid={i}>
                 <div class="rack-decoration">
@@ -149,7 +182,8 @@
     .board {
         /* outline: 2px solid pink; */
         
-        background-image: url("../images/board_default_2.svg");
+        /* background-image: url("../images/board_default_2.svg"); */
+        background-image: url("../images/board.png");
         background-size: 100% 100%;
 
         height: calc(100% * var(--BOARD));
@@ -174,11 +208,11 @@
         top: calc(var(--S) * var(--y));
         left: calc(var(--S) * var(--x));
         
-        background-image: url("../images/cell.png");
+        /* background-image: url("../images/cell.png");
         background-size: 100% 100%;
         background-repeat: no-repeat;
         background-position-x:right;
-        background-position-y:top;
+        background-position-y:top; */
 
         user-select: none;
         

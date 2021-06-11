@@ -13,8 +13,9 @@
     }
     const getGameList = () => {
         getAllGames((list) => {
-            list.map(e=>console.log(e.update_date))
-            game_list = [...list.sort((a,b)=>a.update_date <= b.update_date)]
+            // list.map(e=>console.log(e))
+            // list.sort((a,b)=>b.update_date - a.update_date).map(e=>console.log(e))
+            game_list = [...list.sort((a,b)=>b.update_date - a.update_date)]
         })
     }
     $: game_list = []
@@ -41,11 +42,11 @@
             Nouvelle Partie Solo (Classique)
         </button>
     </div>
-
+    <div class="game-list-header">
+        Parties existantes (clique sur un partie pour continuer à jouer): 
+    </div>
     <div class="game-list">
-        <div class="game-list-header">
-            Parties existantes (clique sur un partie pour continuer à jouer): 
-        </div>
+        
     {#each game_list as game}
          <Game game={game} onclick={launchGame} ondelete={onDeleteGame}/>
     {:else}
@@ -60,6 +61,9 @@
 <style>
     .container {
         padding: 0.5em;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     .intro {
         text-align: center;
@@ -85,6 +89,15 @@
     }
     .bold {
         font-weight: bold;
+    }
+    .game-list {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 0.25em;
     }
     
 </style>

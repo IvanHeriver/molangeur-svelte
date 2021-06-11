@@ -31,26 +31,43 @@
            </button>
         </div>
     </div>
-    <div class="content">
-           <img src={game.img} alt="" width="200px">
-           <div class="info">
+    <div>Dernière modification le <span class="date">{getDate(game.update_date)}</span>
+        à <span class="date">{getTime(game.update_date)}</span></div>
+    <!-- <div class="content"> -->
+    <!-- <img src={game.img} alt="" width="200px" height="200px"> -->
+    <div class="img">
+        <img src={game.img} alt="">
+    </div>
+    
+           <!-- <div class="info">
                <div>Ton score: <span class="bold">{game.players[0].score}</span></div>
                <div>Score de Maître MoLangeur: <span class="bold">{game.players[0].molangeur}</span></div>
                <div>Différence de score: <span class="bold">{game.players[0].molangeur - game.players[0].score}</span></div>
                <div>Nombre de tours faits: <span class="bold">{game.round}</span></div>
-               <div>Dernière modification le <span class="date">{getDate(game.update_date)}</span>
-                à <span class="date">{getTime(game.update_date)}</span></div>
-           </div>
-    </div>
+
+           </div> -->
+    <!-- </div> -->
 </div>
 
 <style>
+    .img {
+        display: flex;
+        justify-content: center;
+        /* background-color: red; */
+        margin: 1em;
+        margin-bottom: 0;
+    }
+    img {
+        object-fit: contain;
+        width: 100%;
+    }
     .game {
         border: 1px solid grey;
         padding: 0.5em;
         border-radius: 0.25em;
         cursor: pointer;
-        margin-bottom: 0.25em;
+        /* margin-bottom: 0.25em; */
+        max-width: 400px;
     }
     .game:hover {
         background-color: rgb(223, 223, 223);
@@ -65,7 +82,7 @@
     .date {
         font-weight: bold;
     }
-    .content {
+    /* .content {
         display: flex;
         justify-content: flex-start;
         font-size: 0.9em;
@@ -74,5 +91,5 @@
 
     .bold {
         font-weight: bold;
-    }
+    } */
 </style>
