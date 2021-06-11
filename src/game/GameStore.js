@@ -145,27 +145,14 @@ const createGameStateStore = () => {
 
 }
 
-// const createActionStore = ()=>{
-//     // initialize game state
-//     const {subscribe, set, update} = writable({
-//         moving_board_letter
-//     })
-
-
-//     return {
-//         subscribe,
-//         init: set,
-//         moveLetter,
-//         addLetter,
-//     }
-
-// }
+export const GameStateStore = createGameStateStore()
 
 const createGameGimmickStore = () => {
 
     // initialize game state
     const {subscribe, set, update} = writable({
-        temp_letters: []
+        temp_letters: [],
+        hover_location: null
     })
 
     const setTempLetters = (temp_letters) => {
@@ -174,14 +161,20 @@ const createGameGimmickStore = () => {
             return state
         })
     }
+    const setHoverLocation = (hover_location) => {
+        update(state=>{
+            state.hover_location = hover_location
+            return state
+        })
+    }
     return {
         subscribe,
         init: set,
-        setTempLetters
+        setTempLetters,
+        setHoverLocation
     }
 }
 
-const GameStateStore = createGameStateStore()
-const GameGimmickStore = createGameGimmickStore()
 
-export {GameStateStore, GameGimmickStore}
+export const GameGimmickStore = createGameGimmickStore()
+

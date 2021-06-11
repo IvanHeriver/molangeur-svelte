@@ -14,6 +14,7 @@
     }
     $: score_info = {...score_info_default}
     $: temp_letters =  []
+    $: hover_location =  []
     $: game_over = false
     $: joker_picker = false
     $: {
@@ -32,10 +33,15 @@
             }
             // dealing with joker picker
             joker_picker = $GameStateStore.jocker_picker
-            // dealing with temporary letters
-            temp_letters = $GameGimmickStore.temp_letters
+            
             // dealing with game over
             game_over = $GameStateStore.game_over
+        }
+        if ($GameGimmickStore) {
+            // dealing with temporary letters
+            temp_letters = $GameGimmickStore.temp_letters
+            // dealing with hover highlight
+            hover_location = $GameGimmickStore.hover_location
         }
     }
 
@@ -47,7 +53,6 @@
         GameStateStore.setJokerPicker({}, false)
         askBoardEvaluation()
     }
-
     const validateJoker = (ltr) => {
         let letter = $GameStateStore.jocker_picker_letter
         GameStateStore.setJoker(letter.id, ltr)
@@ -55,22 +60,9 @@
         askBoardEvaluation()
     }
 
-    // dealing with temp letters
-    
-    // $: { 
-    //     temp_letters = $GameGimmickStore.temp_letters
-    // }
-
     // dealing with row and column names
     const row_names = Array(15).fill(0).map((e, i)=>i+1)
     const col_names = Object.keys(LETTERS).filter(e=>e!=="_").filter((e, i)=>i<15)
-
-    // dealing with game overlay
-    // let game_over = false
-    // $: {
-    //     game_over = $GameStateStore.game_over
-    // }
-    // let game_over = true
 
 </script>
 
@@ -89,6 +81,12 @@
     {/if}
 </div>
 
+{#if hover_location && hover_location.board && hover_location.index !== undefined}
+     <div class="highlight-row" style={`--x:${game.getBoardXY(hover_location.index).x}; --y:${game.getBoardXY(hover_location.index).y};`}>
+     </div>
+     <div class="highlight-col" style={`--x:${game.getBoardXY(hover_location.index).x}; --y:${game.getBoardXY(hover_location.index).y};`}>
+     </div>
+{/if}
 {#if joker_picker}
     <Joker cancel={cancelJoker} validate={validateJoker}/>
 {/if}
@@ -172,6 +170,31 @@
         opacity: 0.75;
         user-select: none;
         pointer-events: none;
+    }
+
+    .highlight-row {
+        background-color: rgba(255, 0, 0, 0.25);
+        position: absolute;
+
+        left: calc(var(--S) * -0.55);
+        top: calc(var(--S) * var(--y) + var(--S) * 0.5);
+        height: calc(var(--S) * 0.75);
+        width: calc(var(--S) * 0.5 + var(--S) * (var(--x) + 1));;
+
+        transform: translateY(-50%);
+        border-radius: var(--S);
+    }
+    .highlight-col {
+        background-color: rgba(255, 0, 0, 0.25);
+        position: absolute;
+
+        top: calc(var(--S) * -0.55);
+        left: calc(var(--S) * var(--x) + var(--S) * 0.5);
+        width: calc(var(--S) * 0.75);
+        height: calc(var(--S) * 0.5 + var(--S) * (var(--y) + 1));;
+
+        transform: translateX(-50%);
+        border-radius: var(--S);
     }
 
 </style>

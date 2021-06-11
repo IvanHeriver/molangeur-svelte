@@ -2,7 +2,7 @@
     //FIXME: this component should be called GameLetters and LetterLook should simply be called Letter
     import {LETTERS} from "../logic/constants"
     import {askBoardEvaluation} from "./GameStateInterface"
-    import {GameStateStore} from "./GameStore"
+    import {GameStateStore, GameGimmickStore} from "./GameStore"
     import RM from "./RackMovements"
     import LetterLook from "./LetterLook.svelte"
 
@@ -41,6 +41,7 @@
         grab_position = game.getXY(E)
         location = game.getLocation(E)
         RM.init($GameStateStore.letters.filter(e=>!e.board), $GameStateStore.letters.filter(e=>e.id===letter.id)[0])
+        GameGimmickStore.setHoverLocation(location)
     }
     const dragMove = (e) => {
         if (grab) {
@@ -52,6 +53,7 @@
             } else {
                 RM.reset()
             }
+            GameGimmickStore.setHoverLocation(location)
         }
     }
     const dragEnd = (e) => {
@@ -83,6 +85,7 @@
             location.board ? soundDropBoard() : soundDropRack()
         }
         grab = false;
+        GameGimmickStore.setHoverLocation(null)
     }
 
 

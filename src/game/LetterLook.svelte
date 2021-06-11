@@ -37,10 +37,11 @@ cui={id}
         /* background-color: rgb(255, 239, 221); */
 
         background-image: url("../images/tile_xlight.png");
-        background-size: 98% 98%;
+        background-size: 100% 100%;
+        /* background-size: 98% 98%;
         background-repeat: no-repeat;
         background-position-x:center;
-        background-position-y:center;
+        background-position-y:center; */
 
         position: absolute;
 

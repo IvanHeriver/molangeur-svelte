@@ -102,7 +102,6 @@ export const updateMolangeur = (words=null) => {
     const GSS = get(GameStateStore)
     if (words) {
         GameStateStore.setMolangeur({
-            // score:  GSS.molangeur.score,
             next_score: words[0].pts,
             current_words: GSS.molangeur.next_words,
             next_words: words,
@@ -110,9 +109,8 @@ export const updateMolangeur = (words=null) => {
         })
     } else {
         GameStateStore.setMolangeur({
-            // score:  GSS.molangeur.score + GSS.molangeur.next_score,
             next_score: null,
-            current_words: GSS.molangeur.next_words,
+            current_words: null,
             next_words: GSS.molangeur.next_words,
             searching: true, 
         })

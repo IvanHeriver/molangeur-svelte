@@ -15,7 +15,7 @@
             let player = $GameStateStore.players.filter(e=>e.id === id)[0]
             let molangeur = $GameStateStore.molangeur
             // console.log(player)
-            console.log(molangeur)
+            // console.log(molangeur)
             score = player ? player.score : 0
             // molangeur_score = molangeur.score
             molangeur_score = player ? player.molangeur : 0
