@@ -11,6 +11,7 @@ export const initDatabase = (callback) => {
         console.error("DB Error: ", DB_OPEN.error)
     })
     DB_OPEN.addEventListener("success", () => {
+        console.log("DB opened")
         DB = DB_OPEN.result
         callback()
     })
@@ -20,6 +21,7 @@ export const addGame = (game) => {
     let games = transaction.objectStore("games")
     let request = games.add(game)
     request.addEventListener("success", () => {
+        console.log("DB game added")
     })
     request.addEventListener("error", () => {
         console.error("DB Error: ", request.error)
@@ -30,6 +32,7 @@ export const updateGame = (game) => {
     let games = transaction.objectStore("games")
     let request = games.put(game)
     request.addEventListener("success", () => {
+        console.log("DB game updated")
     })
     request.addEventListener("error", () => {
         console.error("DB Error: ", request.error)
@@ -38,12 +41,14 @@ export const updateGame = (game) => {
 export const getGame = (id, callback) => {
     let request = DB.transaction("games", "readonly").objectStore("games").get(id)    
     request.addEventListener("success", () => {
+        console.log("DB game retrieved")
         callback(request.result)
     })
 }
 export const getAllGames = (callback) => {
     let request = DB.transaction("games", "readonly").objectStore("games").getAll()    
     request.addEventListener("success", () => {
+        console.log("DB games retrieved")
         callback(request.result)
     })
 }
@@ -52,6 +57,7 @@ export const deleteGame = (id, callback) => {
     let games = transaction.objectStore("games")
     let request = games.delete(id)
     request.addEventListener("success", () => {
+        console.log("DB game deleted")
         callback()
     })
     request.addEventListener("error", () => {
