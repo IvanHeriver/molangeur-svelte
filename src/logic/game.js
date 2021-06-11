@@ -43,6 +43,37 @@ export const loadGame = (id) => {
 export const newGame = () => {
     // initialize game
     GSI.unsetGame()
+    // let GAME = {
+    //     bag: createBag(),
+    //     board: [
+    //         {id: "000", letter: "W", index: 112, board: true, free: false},
+    //         {id: "111", letter: "I", index: 113, board: true, free: false},
+    //         {id: "222", letter: "F", index: 114, board: true, free: false},
+    //         {id: "333", letter: "I", index: 115, board: true, free: false},
+    //         {id: "444", letter: "L", index: 130, board: true, free: false},
+    //         {id: "555", letter: "E", index: 145, board: true, free: false},
+    //         {id: "555", letter: "S", index: 160, board: true, free: false},
+    //         {id: "555", letter: "A", index: 131, board: true, free: false},
+    //         {id: "555", letter: "X", index: 146, board: true, free: false},
+    //         {id: "555", letter: "E", index: 161, board: true, free: false},
+    //         {id: "555", letter: "R", index: 176, board: true, free: false},
+    //         {id: "555", letter: "A", index: 159, board: true, free: false},
+    //         {id: "555", letter: "V", index: 174, board: true, free: false},
+    //         {id: "555", letter: "E", index: 189, board: true, free: false},
+    //         {id: "555", letter: "C", index: 204, board: true, free: false},
+    //     ],
+    //     players: [{
+    //         id: Math.random().toString().slice(2),
+    //         rack: [],
+    //         score: 0,
+    //         molangeur: 0,
+    //     }],
+    //     round: 0,
+    //     type: "solo-duplicate",
+    //     id: Math.random().toString().slice(2),
+    //     update_date: Date.now(),
+    //     create_date: Date.now(),
+    // }
     let GAME = {
         bag: createBag(),
         board: [],
@@ -72,10 +103,11 @@ export const newGame = () => {
         GAME.players.map(e=>{
             return {id: e.id, score: e.score, molangeur: e.molangeur}
         }), 
-        [],
+        GAME.board,
         GAME.players[0].rack
     )
     // launch master molangeur on the new players game
+    GSI.updateMolangeur()
     // DICO.masterMolangeur([...GAME.board, ...GAME.players[0].rack], (words)=>{
     //     GSI.updateMolangeur(words)
     // })
@@ -95,6 +127,7 @@ export const updateGameImagePreview = (id, image_data) => {
 }
 
 export const submitWord = (id, player_id, free_letters_on_board, molangeur_score) => {
+    console.log("submitWord")
     DB.getGame(id, (game) => {
         // retrieve player index:
         const player_index = game.players.map(e=>e.id).indexOf(player_id)
@@ -140,7 +173,7 @@ export const submitWord = (id, player_id, free_letters_on_board, molangeur_score
                 [...game.players[player_index].rack]
             )
             // launch master molangeur on the new players game
-            GSI.updateMolangeur()
+            // GSI.updateMolangeur()
             // DICO.masterMolangeur([...game.board, ...game.players[player_index].rack], (words)=>{
             //     if (words.length !== 0) {
             //         GSI.updateMolangeur(words)

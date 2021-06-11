@@ -1,3 +1,5 @@
+console.log = () => {}
+
 onmessage = (e) => {
     const msg = e.data
     console.log(`message received: ${msg.code} (${msg.id})`);
@@ -34,14 +36,7 @@ const molangeur = (letters, id) => {
 //                                                                 //
 // =============================================================== //
 // =============================================================== //
-// depends on : 
-// U.buildBoardIndexArray
-// U.unique
-// MAPPING.NEIGHBORS
-// LETTERS
-// POINTS
-// LTRS
-// WORD_POSITIONS
+
 
 const masterMolangeur = (letters, callback) => {
     const configuration = initMasterMolangeur(letters)
@@ -123,9 +118,27 @@ const removeDuplicatedWords = (arr) => {
     })
 }
 
-const findWords = (letters, min_length, max_length, fixed_constraints, free_constraints) => {
+const findWords = (letters, min_length, max_length, fixed_constraints, free_constraints, print=false) => {
     const found = [];
-    const getWords = (letters, k=0, dico=DICO, free_letters_used=0, joker_positions=[]) => {
+    // let N = 0
+    const getWords = (letters, k=0, dico=DICO, free_letters_used=0, joker_positions=[], L=null) => {
+        // N++
+        // if (print && N>=194) {
+        //     console.log("+++++++++++++++")
+        //     console.log("N", N)
+        //     console.log("k", k)
+        //     console.log("letters", letters)
+        //     console.log("dico", dico)
+        //     console.log("free_letters_used", free_letters_used)
+        //     console.log("joker_positions", joker_positions)
+        //     console.log("found", found)
+        //     console.log("L", L)
+        //     console.log("min_length", max_length)
+        //     console.log("max_length", min_length)
+        //     console.log("fixed_constraints[k]", fixed_constraints[k])
+        //     console.log("free_constraints[k]", free_constraints[k])
+        //     console.log("dico[\"$\"]", dico["$"])
+        // }
         if (k <= max_length) { // if too long, end search
             if (fixed_constraints[k]) { // if fixe letter at this location
                 // if there are valid words with this letter at this location
@@ -140,20 +153,25 @@ const findWords = (letters, min_length, max_length, fixed_constraints, free_cons
                 free_letters_used += 1
                 // continue with the remaining letters
                 for (let i = 0; i<letters.length; i++) {
-                    if (free_constraints[k] && free_constraints[k].indexOf(letters[i])===-1) continue
-                    if (dico[letters[i]]) { // if there are valid word with this letter at this location
-                            let remaining_letters = [...letters.slice(0, i), ...letters.slice(i+1)]
-                            getWords(remaining_letters, k+1,  dico[letters[i]], free_letters_used, joker_positions)
-                    } else if (letters[i] === "_"){ // if it is a joker
-                        // joker_positions = [...joker_positions, k]
+                    // if (N === 197) {
+                    //     console.log(" > letters[i]", letters[i])
+                    //     console.log(" > dico[letters[i]]", dico[letters[i]])
+                    //     console.log(" > dico[letters[i]]", dico[letters[i]])
+                    // }
+                    
+                    if (letters[i] === "_") {
                         for (let j = 0; j < LTRS.length; j++) {
                             if (dico[LTRS[j]]) {
+                                if (free_constraints[k] && free_constraints[k].indexOf(LTRS[j])===-1) continue
                                 let remaining_letters = [...letters.slice(0, i), ...letters.slice(i+1)]
-                                getWords(remaining_letters, k+1, dico[LTRS[j]], free_letters_used,  [...joker_positions, k])
+                                getWords(remaining_letters, k+1, dico[LTRS[j]], free_letters_used,  [...joker_positions, k], LTRS[j])
                             }
                         }
+                    } else if (dico[letters[i]]) { // if there are valid word with this letter at this location
+                        if (free_constraints[k] && free_constraints[k].indexOf(letters[i])===-1) continue
+                        let remaining_letters = [...letters.slice(0, i), ...letters.slice(i+1)]
+                        getWords(remaining_letters, k+1,  dico[letters[i]], free_letters_used, joker_positions)
                     }
-                    
                 }
             }
         }
@@ -206,7 +224,7 @@ const computeWordPositions = (board, valid_cell, n_free_letters) => {
 
 const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_letters, arr_free_constraints, vertical=true) => {
 
-    const letters = free_letters.map(e=>e.letter)
+    const letters = free_letters.map(e=>e.letter) // FIXME: this could be done only once
 
     let free_c
     if (vertical) {
@@ -217,25 +235,29 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
     let fixed_c = position_group.indices.map(e=>arr_fixed_letters[e] ? arr_fixed_letters[e].letter : null)
 
     // const found_words = U.unique(findWords(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c).map(e=>e.word))
-    const raw_found_words = findWords(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c)
+    const raw_found_words = findWords(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c, vertical && position_group.indices[0]===188)
     const found_words = raw_found_words.map(e=>e.word)
     const n_letter_used = raw_found_words.map(e=>e.n)
     const joker_positions = raw_found_words.map(e=>e.joker)
 
     let pos_multiplier = position_group.indices.map(e=>POINTS[e])
-    // console.log("-----------------")
-    // console.log("k=", position_group.indices[0])
-    // console.log(position_group)
-    // console.log(raw_found_words)
-    // console.log(pos_multiplier)
-    // console.log(vertical)
-    // console.log(arr_free_constraints)
+    // if (vertical && position_group.indices[0]===188) {
+    //     console.log("-----------------")
+    //     console.log("k=", position_group.indices[0])
+    //     console.log(position_group)
+    //     console.log(raw_found_words)
+    //     console.log(pos_multiplier)
+    //     console.log(vertical)
+    //     console.log(arr_free_constraints)
+    //     console.log(joker_positions)
+    // }
+
     let adjacent_point
     if (vertical) {
-        adjacent_point = position_group.indices.map(e=> {
+        adjacent_point = position_group.indices.map((e, j)=> {
             if (arr_free_constraints[e]===null || arr_free_constraints[e].h===null) return null
             let obj = {}
-            arr_free_constraints[e].h.map((l, i)=>obj[l] = arr_free_constraints[e].p_h[i])
+            arr_free_constraints[e].h.map((l, i)=> obj[l] = arr_free_constraints[e].p_h[i])
             return obj
         })
     } else {
@@ -246,7 +268,9 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
             return obj
         })
     }
-
+    // if (vertical && position_group.indices[0]===188) {
+    //     console.log(adjacent_point)
+    // }
     const word_letter_points = found_words.map((w, i)=>{
         let a = 0
         let w_m = 1
@@ -259,6 +283,8 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
             } 
             if (adjacent_point[k]) {
                 a += adjacent_point[k][w[k]]
+                let d = (joker_positions[i].indexOf(k) !== -1) ? LETTERS[w[k]].pts : 0
+                a -= d
             }
             t += p
         }
