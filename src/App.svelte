@@ -2,7 +2,7 @@
 
 import GamePage from "./game/GamePage.svelte"
 import WelcomPage from "./welcom/WelcomPage.svelte"
-import {initDictionnary} from "./logic/dico"
+// import {initDictionnary} from "./logic/dico"
 import {initDatabase} from "./logic/DB"
 
 // let page = "game"
@@ -36,7 +36,7 @@ initDatabase(()=>{
         <div class="navigation-toggle">
             
         </div>
-        <img src="../images/molangeur-h_2.png" alt="" on:click={()=>{
+        <img src="../images/molangeur_logo.png" alt="" on:click={()=>{
             page = "welcom"
         }}>
     </div>
@@ -63,6 +63,7 @@ initDatabase(()=>{
     .container {
         display: flex;
         flex-direction: column;
+        align-items: stretch;
     }
     .header-navigation {
         background-color: rgb(201, 101, 101);
@@ -70,7 +71,7 @@ initDatabase(()=>{
         display: flex;
     }
     .header-navigation > img {
-        width: 200px;
+        width: 250px;
         height: 50px;
     }
     .navigation-toggle {
@@ -85,6 +86,7 @@ initDatabase(()=>{
 
     img {
         cursor: pointer;
+        z-index: 11;
     }
     @media screen and (min-width: 992px) {
         .container {
@@ -93,7 +95,10 @@ initDatabase(()=>{
         .header-navigation {
             width: 50px;
             flex-direction: column;
-            min-height: 100vh;
+            /* height: 100%;
+            min-height: 100vh; */
+            /* flex-grow: 1; */
+            height: 260px;
         }
         .header-navigation > img {
             transform-origin: top left;
