@@ -81,7 +81,8 @@
     }
 
     .description {
-        font-size: 1.5em;
+        /* font-size: 1.5em; */
+        font-size: 0.9rem;
         text-align: center;
     }
 
@@ -105,6 +106,7 @@
     button {
         height: 4em;
         width: 100%;
+        font-size: 0.9rem;
     }
 
 </style>

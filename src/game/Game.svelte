@@ -1,7 +1,7 @@
 <script>
     
     import {afterUpdate} from "svelte"
-    import html2canvas from "html2canvas"
+    // import html2canvas from "html2canvas"
     import domtoimage from "dom-to-image"
     import {newGameImagePreviewUpdate} from "./GameStateInterface"
 
@@ -52,10 +52,10 @@
                 // link.href = dataUrl;
                 // link.click();
                 // let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
-                console.log(dataUrl)
+                // console.log(dataUrl)
                 console.timeEnd("dom-to-image")
                 newGameImagePreviewUpdate($GameStateStore.id, dataUrl)
-                console.log("done")
+                // console.log("done")
             })
         }
         
@@ -127,7 +127,7 @@
             <BoardOverlay game={locationFunctions}/>
             {#each board as e, i}
                 <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}>
-                    <!-- <span style='font-size: 0.7em'>{i}</span> -->
+                    <span style='font-size: 0.7em'>{i}</span>
                 </div>
             {/each}
         </div>
