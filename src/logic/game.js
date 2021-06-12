@@ -74,6 +74,25 @@ export const newGame = () => {
     //     update_date: Date.now(),
     //     create_date: Date.now(),
     // }
+    // let GAME = {
+    //     bag: createBag(),
+    //     board: [
+    //         {id: "222", letter: "A", index: 96, board: true, free: false},
+    //         {id: "000", letter: "M", index: 97, board: true, free: false},
+    //         {id: "111", letter: "_", index: 112, board: true, free: false, joker: "E"},
+    //     ],
+    //     players: [{
+    //         id: Math.random().toString().slice(2),
+    //         rack: [],
+    //         score: 0,
+    //         molangeur: 0,
+    //     }],
+    //     round: 0,
+    //     type: "solo-duplicate",
+    //     id: Math.random().toString().slice(2),
+    //     update_date: Date.now(),
+    //     create_date: Date.now(),
+    // }
     let GAME = {
         bag: createBag(),
         board: [],

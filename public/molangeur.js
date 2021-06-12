@@ -1,5 +1,8 @@
 console.log = () => {}
+let N = 0
 
+console.log("onmessage", N)
+// throw "error"
 onmessage = (e) => {
     const msg = e.data
     console.log(`message received: ${msg.code} (${msg.id})`);
@@ -28,7 +31,7 @@ const molangeur = (letters, id) => {
     
 }
 
-
+N = 1
 // =============================================================== //
 // =============================================================== //
 //                                                                 //
@@ -45,6 +48,7 @@ const masterMolangeur = (letters, callback) => {
         callback(words)
     }
     console.time("molangeur")
+    // console.log(configuration)
     launchMasterMolangeur(configuration, on_done)
 }
 
@@ -62,6 +66,8 @@ const initMasterMolangeur = (letters) => {
 
     const words_positions = computeWordPositions(arr_fixed_letters, valid_cells, free_letters.length)
     
+    console.log("valid_cells", valid_cells)
+    console.log("free_constraints", free_constraints)
     return {
         words_positions,
         free_letters,
@@ -123,7 +129,7 @@ const findWords = (letters, min_length, max_length, fixed_constraints, free_cons
     // let N = 0
     const getWords = (letters, k=0, dico=DICO, free_letters_used=0, joker_positions=[], L=null) => {
         // N++
-        // if (print && N>=194) {
+        // if (print && k >= 7) {
         //     console.log("+++++++++++++++")
         //     console.log("N", N)
         //     console.log("k", k)
@@ -232,25 +238,30 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
     } else {
         free_c = position_group.indices.map(e=>arr_free_constraints[e] ? arr_free_constraints[e].v : null)
     }
-    let fixed_c = position_group.indices.map(e=>arr_fixed_letters[e] ? arr_fixed_letters[e].letter : null)
+    let fixed_c_pts = []
+    let fixed_c = position_group.indices.map(e=> {
+        if (arr_fixed_letters[e]) {
+            if (arr_fixed_letters[e].letter==="_") {
+                fixed_c_pts.push(0)
+                return arr_fixed_letters[e].joker
+            } else {
+                fixed_c_pts.push(LETTERS[arr_fixed_letters[e].letter].pts)
+                return arr_fixed_letters[e].letter
+            }
+        }
+        // arr_fixed_letters[e] ? arr_fixed_letters[e].letter : null
+        fixed_c_pts.push(null)
+        return null
+    })
 
     // const found_words = U.unique(findWords(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c).map(e=>e.word))
-    const raw_found_words = findWords(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c, vertical && position_group.indices[0]===188)
+    const raw_found_words = findWords(letters, position_group.dim.min, position_group.dim.max, fixed_c, free_c, vertical && position_group.indices[0]===105)
     const found_words = raw_found_words.map(e=>e.word)
     const n_letter_used = raw_found_words.map(e=>e.n)
     const joker_positions = raw_found_words.map(e=>e.joker)
 
     let pos_multiplier = position_group.indices.map(e=>POINTS[e])
-    // if (vertical && position_group.indices[0]===188) {
-    //     console.log("-----------------")
-    //     console.log("k=", position_group.indices[0])
-    //     console.log(position_group)
-    //     console.log(raw_found_words)
-    //     console.log(pos_multiplier)
-    //     console.log(vertical)
-    //     console.log(arr_free_constraints)
-    //     console.log(joker_positions)
-    // }
+
 
     let adjacent_point
     if (vertical) {
@@ -268,30 +279,43 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
             return obj
         })
     }
-    // if (vertical && position_group.indices[0]===188) {
-    //     console.log(adjacent_point)
-    // }
+
     const word_letter_points = found_words.map((w, i)=>{
         let a = 0
         let w_m = 1
         let t = 0
         for (let k = 0; k<w.length; k++) {
             let p = (joker_positions[i].indexOf(k) === -1 ? LETTERS[w[k]].pts : 0)
+            if (fixed_c_pts[k] !== null) p = fixed_c_pts[k] 
             if (fixed_c[k]===null) {
                 p *= pos_multiplier[k].letter_mutliplier
                 w_m *= pos_multiplier[k].word_multiplier
             } 
             if (adjacent_point[k]) {
                 a += adjacent_point[k][w[k]]
-                let d = (joker_positions[i].indexOf(k) !== -1) ? LETTERS[w[k]].pts : 0
-                a -= d
+                // let d = (joker_positions[i].indexOf(k) !== -1) ? LETTERS[w[k]].pts : 0
+                // a -= d
             }
             t += p
         }
         t *=  w_m 
         return t + a + (n_letter_used[i] === 7 ? 50 : 0)
     })
-
+    // if ((!vertical && position_group.indices[0]===96) || vertical && position_group.indices[0]===111) {
+    //     console.log("-----------------")
+    //     console.log("vertical", vertical)
+    //     console.log("k=", position_group.indices[0])
+    //     console.log("fixed_c", fixed_c)
+    //     console.log("fixed_c_pts", fixed_c_pts)
+    //     console.log("free_c", free_c)
+    //     console.log("position_group", position_group)
+    //     console.log("raw_found_words", raw_found_words)
+    //     console.log("pos_multiplier", pos_multiplier)
+    //     console.log("arr_free_constraints", arr_free_constraints)
+    //     console.log("joker_positions", joker_positions)
+    //     console.log("adjacent_point", adjacent_point)
+    //     console.log("word_letter_points", word_letter_points)
+    // }
 
     const output = found_words.map((e, i) => {
         return {
@@ -321,21 +345,35 @@ const findValidCellsAndOrthogonalWords = (fixed_letters, arr_fixed_letters) => {
 const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
     const ltrs = free_letters.map(e=>e.letter)
     return valid_cells.map(cell=>{
+        console.log("======================")
+        console.log("cell", cell)
+        console.log("ltrs", ltrs)
         let p = POINTS[cell.index]
-        let n_h, w_h, l_h, p_h
+        let l_p
+        let n_h, w_h, l_h, lp_h, p_h
         if (cell.horizontal) {
             n_h = cell.horizontal.length
-            w_h = findWords(ltrs, n_h, n_h, cell.horizontal, Array(n_h).fill(null)).map(e=>e.word)
-            l_h = w_h.map(e=>e.slice(cell.null_index.h, cell.null_index.h+1))
-
-            p_h = l_h.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.horizontal_fixed_points) * p.word_multiplier)
+            // w_h = findWords(ltrs, n_h, n_h, cell.horizontal, Array(n_h).fill(null)).map(e=>e.word)
+            w_h = findWords(ltrs, n_h, n_h, cell.horizontal, Array(n_h).fill(null))
+            l_h = w_h.map(e=>e.word.slice(cell.null_index.h, cell.null_index.h+1))
+            lp_h = w_h.map((e, i)=>e.joker.indexOf(cell.null_index.h) === -1 ? LETTERS[l_h[i]].pts : 0)
+            // l_h = w_h.map(e=>e.slice(cell.null_index.h, cell.null_index.h+1))
+            // p_h = l_h.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.horizontal_fixed_points) * p.word_multiplier)
+            p_h = lp_h.map(e=>(e * p.letter_mutliplier + cell.horizontal_fixed_points) * p.word_multiplier)
         }
-        let n_v, w_v, l_v, p_v
+        let n_v, w_v, l_v, lp_v, p_v
         if (cell.vertical) {
             n_v = cell.vertical.length
-            w_v = findWords(ltrs, n_v, n_v, cell.vertical, Array(n_v).fill(null)).map(e=>e.word)
-            l_v = w_v.map(e=>e.slice(cell.null_index.v, cell.null_index.v+1))
-            p_v = l_v.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.vertical_fixed_points) * p.word_multiplier)
+            // w_v = findWords(ltrs, n_v, n_v, cell.vertical, Array(n_v).fill(null)).map(e=>e.word)
+            w_v = findWords(ltrs, n_v, n_v, cell.vertical, Array(n_v).fill(null))
+            // console.log("w_v_f", w_v_f)
+            l_v = w_v.map(e=>e.word.slice(cell.null_index.v, cell.null_index.v+1))
+            lp_v = w_v.map((e, i)=>e.joker.indexOf(cell.null_index.v) === -1 ? LETTERS[l_v[i]].pts : 0)
+            // console.log("l_v", l_v)
+            // console.log("l_p", l_p)
+            // l_v = w_v.map(e=>e.slice(cell.null_index.v, cell.null_index.v+1))
+            // p_v = l_v.map(e=>(LETTERS[e].pts * p.letter_mutliplier + cell.vertical_fixed_points) * p.word_multiplier)
+            p_v = lp_v.map(e=>(e * p.letter_mutliplier + cell.vertical_fixed_points) * p.word_multiplier)
         }
         return {
             index: cell.index,
@@ -350,35 +388,40 @@ const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
 
 
 const buildWordsFromFreeCell = (index, arr_fixed_letters) => {
-    const getLtrs = (index, full=[], dir="left") => {
+    const getLtrs = (index, ltr=[], pts=[], dir="left") => {
         let n = MAPPING.NEIGHBORS[index][dir]
         if (n !== null) {
             if (arr_fixed_letters[n] !== null) {
-                full.push(arr_fixed_letters[n].letter)
-                getLtrs(n, full, dir)
+                ltr.push(arr_fixed_letters[n].letter === "_" ? arr_fixed_letters[n].joker : arr_fixed_letters[n].letter)
+                pts.push(arr_fixed_letters[n].letter === "_" ? 0: LETTERS[arr_fixed_letters[n].letter].pts)
+                getLtrs(n, ltr, pts, dir)
             } 
         }
-        return full
+        return {ltr, pts}
     }
-    const h_left = getLtrs(index, [], "left").reverse()
+    const h_left = getLtrs(index, [], [], "left")
+    const h_right = getLtrs(index, [], [], "right")
     const horizontal = [
-        ...h_left, 
+        ...h_left.ltr.reverse(), 
         null,
-        ...getLtrs(index, [], "right")
+        ...h_right.ltr
     ]
-    const v_top = getLtrs(index, [], "top").reverse()
+    const v_top = getLtrs(index, [], [], "top")
+    const v_bottom = getLtrs(index, [], [], "bottom")
     const vertical = [
-        ...v_top, 
+        ...v_top.ltr.reverse(), 
         null,
-        ...getLtrs(index, [], "bottom")
+        ...v_bottom.ltr
     ]
     //REFACTOR
     return {
         horizontal: horizontal.length === 1 ? null : horizontal,
         vertical: vertical.length === 1 ? null : vertical,
-        null_index: {v: v_top.length, h: h_left.length},
-        vertical_fixed_points: vertical.length === 1 ? null : vertical.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
-        horizontal_fixed_points: horizontal.length === 1 ? null : horizontal.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
+        null_index: {v: v_top.ltr.length, h: h_left.ltr.length},
+        // vertical_fixed_points: vertical.length === 1 ? null : vertical.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
+        vertical_fixed_points: vertical.length === 1 ? null : [...v_top.pts, ...v_bottom.pts].reduce((p, c)=>p+c),
+        // horizontal_fixed_points: horizontal.length === 1 ? null : horizontal.filter(e=>e!==null).map(e=>LETTERS[e].pts).reduce((p, c)=>p+c),
+        horizontal_fixed_points: horizontal.length === 1 ? null : [...h_left.pts, ...h_right.pts].reduce((p, c)=>p+c),
     }
 }
 

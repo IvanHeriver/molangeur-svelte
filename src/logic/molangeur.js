@@ -1,28 +1,36 @@
 import {LETTERS, LTRS, POINTS, MAPPING, WORD_POSITIONS} from "./constants"
 let WORKER 
-if (window.Worker) {
-    WORKER = new Worker('molangeur.js')
-} else {
-    alert(`Ce site necessite la technologie "Worker" que votre navigateur ne possède pas.
-    Certaines fonctionnalités importantes ne fonctionneront.
-    Cela inclue le maître MoLangeur, l'algorithme permettant de trouver le meilleur mot dans une situation donnée.`)
-    WORKER = {addEventListener: () => {}, postMessage: () => {}}
-}
+
 
 const makeID = () => Math.random().toString().slice(2)
 const callbacks = {}
-WORKER.addEventListener("message", (e)=>{
-    const msg = e.data
-    console.log(`message received: ${msg.id}`);
-    console.log(msg)
-    if (msg.id && callbacks[msg.id]) {
-        callbacks[msg.id](msg.content)
-        delete callbacks[msg.id]
-    }
-})
+
 
 let DICO
 export const initMolangeur = (callback) => {
+    console.log("WORKER-initMolangeur")
+    if (window.Worker) {
+        console.log("new Worker('molangeur.js')")
+        WORKER = new Worker('molangeur.js')
+        
+    } else {
+        alert(`Ce site necessite la technologie "Worker" que votre navigateur ne possède pas.
+        Certaines fonctionnalités importantes ne fonctionneront.
+        Cela inclue le maître MoLangeur, l'algorithme permettant de trouver le meilleur mot dans une situation donnée.`)
+        WORKER = {addEventListener: () => {}, postMessage: () => {}}
+    }
+    console.log("WORKER-addEventListener")
+    WORKER.addEventListener("message", (e)=>{
+        const msg = e.data
+        console.log(`message received: ${msg.id}`);
+        console.log(msg)
+        if (msg.id && callbacks[msg.id]) {
+            callbacks[msg.id](msg.content)
+            delete callbacks[msg.id]
+        }
+    })
+
+
     let id = makeID()
     callbacks[id] = callback
     fetch("./ALL_WORDS.txt").then(e=>e.text()).then(e=>{
@@ -41,6 +49,7 @@ export const initMolangeur = (callback) => {
         words.map(w=>{
             DICO = addWordToDico(w, DICO)
         })
+        console.log("WORKER-postMessage-init")
         WORKER.postMessage({code: "init", id: id, content: {
             LETTERS, LTRS, POINTS, MAPPING, WORD_POSITIONS, DICO
         }})
@@ -64,6 +73,7 @@ export const getDictionnary = (callback) => {
 }
 
 export const molangeur = (letters, callback) => {
+    console.log("MOLANGEUR")
     let id = makeID()
     callbacks[id] = callback
     WORKER.postMessage({code: "molangeur", id: id, content: letters})
