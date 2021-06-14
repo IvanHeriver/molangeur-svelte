@@ -43,7 +43,7 @@
                     //         return false
                     //     } 
                     // }
-                    console.log(node)
+                    // console.log(node)
                     return true
                 }
             }).then((dataUrl)=>{

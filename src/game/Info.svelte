@@ -26,6 +26,7 @@
     $: last_word = null;
     $: last_score = null;
     $: last_molangeur = null;
+    $: n_better_words = null;
     $: last_rank = null;
     $: id = null
     $: score = 0
@@ -70,6 +71,7 @@
                 last_score = last_game.evaluation.score
                 last_word = last_game.evaluation.words[0]
                 last_molangeur = last_game.molangeur
+                n_better_words = last_game.n_better_words !== undefined ? last_game.n_better_words : null
                 last_coord = getNiceWordCoord(last_game.evaluation.all_words[0][0].index)
                 console.log("*************************")
             }
@@ -90,7 +92,7 @@
             } else {
                 if (!$GameStateStore.evaluation) {
                     action = ""
-                    word = "Le positionnement des lettres posées sur la grille n'est pas valide."
+                    word = "Le positionnement des lettres sur la grille n'est pas valide."
                 } else if (!$GameStateStore.evaluation.validity) {
                     let invalid_words = $GameStateStore.evaluation.words.filter((e, i) => !$GameStateStore.evaluation.validities[i])
                     if (invalid_words.length === 1) {
@@ -128,13 +130,18 @@
         </div>
         {/if}
         </div>
-        {#if last_score!=null && last_rank!==null}
+        {#if last_score!=null && last_rank!==null && n_better_words !== null}
              <div class="last-game">
                 Au dernier coup tu as joué <span class="value">{last_word}</span> en position <span class="value">{last_coord}</span> pour un score de <span class="value">{last_score}</span>, 
                 {#if last_rank===1}
                 le meilleur score possible.
                 {:else}
-                le <span class="value">{last_rank}<sup>{getRankNiceText(last_rank)}</sup></span> meilleur score (le meilleur score était <span class="value">{last_molangeur}</span>)
+                le <span class="value">{last_rank}<sup>{getRankNiceText(last_rank)}</sup></span> meilleur score 
+                {#if n_better_words === 1}
+                (seul <span class="value">{n_better_words}</span> mot était meilleur)
+                {:else}
+                (<span class="value">{n_better_words}</span> mots étaient meilleurs)
+                {/if}
                 {/if}
                 
              </div>

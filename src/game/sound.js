@@ -2,8 +2,8 @@ import * as Tone from "tone"
 
 const drop_board = new Tone.Player("../images/drop_board.wav").toDestination()
 const drop_rack = new Tone.Player("../images/drop_rack.wav").toDestination()
-drop_board.volume.value = -5
-drop_rack.volume.value = -15
+drop_board.volume.value = -10
+drop_rack.volume.value = -20
 Tone.setContext(new Tone.Context({ latencyHint : "playback" }))
 
 const init = () => {

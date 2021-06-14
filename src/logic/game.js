@@ -250,13 +250,20 @@ const getHistoryEntry = (player_id, new_letters, evaluation, molangeur) => {
     console.log(molangeur)
     let rank = 0
     let current_score = +Infinity
+    let current_n_better_words = 0
+    let cumulative_n_better_words = 0
+    let n_better_words = null
+    // let n_better_words = null
     let word_rank = null
     let ranks = molangeur.next_words.map(e=>{
-        if (e.pts <current_score) {
+        if (e.pts<current_score) {
             rank++
+            current_n_better_words = cumulative_n_better_words
             current_score = e.pts
-        }
+        } 
         e.rank = rank
+        e.n_better_words = current_n_better_words
+        cumulative_n_better_words++
         return e
     })
     console.log(ranks)
@@ -278,12 +285,14 @@ const getHistoryEntry = (player_id, new_letters, evaluation, molangeur) => {
 
     } else {
         word_rank = current_rank[0].rank
+        n_better_words = current_rank[0].n_better_words
     }
     const historyEntry = {
         player_id: player_id,
         letters: new_letters,
         evaluation: evaluation,
         rank: word_rank,
+        n_better_words: n_better_words,
         molangeur: molangeur.next_score,
     }
     console.log(historyEntry)
