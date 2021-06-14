@@ -36,7 +36,7 @@ cui={id}
         /* border: 0.1rem solid black; */
         /* background-color: rgb(255, 239, 221); */
 
-        background-image: url("../images/tile_xlight.png");
+        background-image: url("../images/tile_xlight1.png");
         background-size: 100% 100%;
         /* background-size: 98% 98%;
         background-repeat: no-repeat;
@@ -61,11 +61,11 @@ cui={id}
         /* background-color: rgb(255, 214, 167); */
         cursor: grab;
 
-        background-image: url("../images/tile_medium.png");
+        background-image: url("../images/tile_medium1.png");
     }
     .free:hover {
         /* background-color: rgb(255, 185, 106); */
-        background-image: url("../images/tile_strong.png");
+        background-image: url("../images/tile_strong1.png");
     }
 
     .board {
@@ -125,7 +125,7 @@ cui={id}
         width: calc(var(--S) * var(--F));
         height: calc(var(--S) * var(--F));
 
-        background-image: url("../images/tile_xlight.png");
+        background-image: url("../images/tile_xlight1.png");
         position: relative;
 
         cursor: pointer;
@@ -133,22 +133,22 @@ cui={id}
 
     .joker:hover {
         /* background-color: rgb(255, 185, 106); */
-        background-image: url("../images/tile_medium.png");
+        background-image: url("../images/tile_medium1.png");
     }
 
     .selected {
         /* background-color: rgb(255, 155, 41); */
-        background-image: url("../images/tile_strong.png");
+        background-image: url("../images/tile_strong1.png");
     }
     .selected:hover {
         /* background-color: rgb(255, 147, 23); */
-        background-image: url("../images/tile_xstrong.png");
+        background-image: url("../images/tile_xstrong1.png");
     }
 
 
     .temp {
         z-index: 100;
         /* opacity: 0.5; */
-        background-image: url("../images/tile_xstrong.png");
+        background-image: url("../images/tile_xstrong1.png");
     }
 </style>

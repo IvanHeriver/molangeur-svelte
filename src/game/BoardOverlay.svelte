@@ -1,8 +1,9 @@
 <script>
-    import {LETTERS} from "../logic/constants"
+    import {LETTERS} from "../logic/constants" // FIXME: should be LTRS?
     import {GameStateStore, GameGimmickStore} from "./GameStore"
     import Joker from "./Joker.svelte"
-    import {askBoardEvaluation} from "./GameStateInterface"
+    // import {askBoardEvaluation} from "./GameStateInterface"
+    import {checkBoard} from "../logic/molangeur"
     import LetterLook from "./LetterLook.svelte"
     export let game;
     
@@ -10,6 +11,7 @@
     const score_info_default = {
         valid: false,
         score: 0,
+        score_location: {x:-1, y:-1},
         vertical: false,
     }
     $: score_info = {...score_info_default}
@@ -17,26 +19,31 @@
     $: hover_location =  []
     $: game_over = false
     $: joker_picker = false
+    $: evaluation = null
     $: {
         if ($GameStateStore) {
-            // dealing with score update
-            let evaluation  = $GameStateStore.evaluation
-            if (evaluation) {
+            // dealing with score
+            evaluation = checkBoard($GameStateStore.letters)
+            GameStateStore.setEvaluation(evaluation)
+            if (evaluation && evaluation.validity) {
                 score_info = {
-                    valid: evaluation.is_word_valid,
-                    score: evaluation.total_score,
-                    score_location: game.getBoardXY(evaluation.last_letter_index),
-                    vertical: evaluation.full_words[evaluation.main_word_index].vertical
+                    valid: evaluation.validity, 
+                    score: evaluation.score,
+                    score_location: game.getBoardXY(evaluation.all_words[0].slice(-1)[0].index), 
+                    vertical: !evaluation.is_horizontal
                 }
             } else {
                 score_info = {...score_info_default}
             }
+            console.log(evaluation)
+            console.log(score_info)
             // dealing with joker picker
             joker_picker = $GameStateStore.jocker_picker
-            
             // dealing with game over
             game_over = $GameStateStore.game_over
         }
+    }
+    $: {
         if ($GameGimmickStore) {
             // dealing with temporary letters
             temp_letters = $GameGimmickStore.temp_letters
@@ -51,13 +58,13 @@
         let letter = $GameStateStore.jocker_picker_letter
         GameStateStore.moveLetter(letter.id, letter.board, letter.index)
         GameStateStore.setJokerPicker({}, false)
-        askBoardEvaluation()
+        // askBoardEvaluation()
     }
     const validateJoker = (ltr) => {
         let letter = $GameStateStore.jocker_picker_letter
         GameStateStore.setJoker(letter.id, ltr)
         GameStateStore.setJokerPicker({}, false)
-        askBoardEvaluation()
+        // askBoardEvaluation()
     }
 
     // dealing with row and column names

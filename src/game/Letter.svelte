@@ -1,7 +1,8 @@
 <script>
     //FIXME: this component should be called GameLetters and LetterLook should simply be called Letter
     import {LETTERS} from "../logic/constants"
-    import {askBoardEvaluation} from "./GameStateInterface"
+    // import {askBoardEvaluation} from "./GameStateInterface"
+    // import {checkBoard} from "../logic/molangeur"
     import {GameStateStore, GameGimmickStore} from "./GameStore"
     import RM from "./RackMovements"
     import LetterLook from "./LetterLook.svelte"
@@ -81,7 +82,7 @@
             // in all valid cases, update the letter location
             GameStateStore.moveLetter(letter.id, location.board, location.index) 
             // and ask for a new board ask for a new board evaluation
-            askBoardEvaluation()
+            // askBoardEvaluation()
             location.board ? soundDropBoard() : soundDropRack()
         }
         grab = false;

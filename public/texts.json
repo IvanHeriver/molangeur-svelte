@@ -1,0 +1,38 @@
+{
+    "judgments": [
+        [
+            {"sentence": "C'est vraiment pas terrible... mais c'est valide...", "probability": 0.1},
+            {"sentence": "C'est vraiment pas terrible... Tu peux faire beaucoup mieux.", "probability": 0.3},
+            {"sentence": "C'est nul mais c'est valide...", "probability": 0.05},
+            {"sentence": "", "probability": 0.5}
+        ],
+        [
+            {"sentence": "Bof... Tu peux faire bien mieux.", "probability": 0.3},
+            {"sentence": "Bof...", "probability": 0.2},
+            {"sentence": "", "probability": 0.5}
+        ],
+        [
+            {"sentence": "Pas mal. Bien trouvé!", "probability": 0.3},
+            {"sentence": "Bien! Pas mal du tout!", "probability": 0.3},
+            {"sentence": "Bien!", "probability": 0.3},
+            {"sentence": "", "probability": 0.1}
+        ],
+        [
+            {"sentence": "Très bien! Jolie mot!", "probability": 0.45},
+            {"sentence": "Très bien!", "probability": 0.45},
+            {"sentence": "", "probability": 0.1}
+        ],
+        [
+            {"sentence": "Excellent! Difficile de faire mieux!", "probability": 0.5},
+            {"sentence": "Excellent! Bravo!", "probability": 0.1},
+            {"sentence": "Excellent!", "probability": 0.4}
+        ],
+        [
+            {"sentence": "Parfait! Tu ne peux pas mieux faire!", "probability": 0.3},
+            {"sentence": "Excellent! Tu ne peux pas mieux faire!", "probability": 0.1},
+            {"sentence": "Juste parfait!", "probability": 0.1},
+            {"sentence": "Parfait! Bravo!", "probability": 0.3},
+            {"sentence": "Parfait!", "probability": 0.2}
+        ]
+    ]
+}

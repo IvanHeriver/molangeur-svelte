@@ -4,6 +4,7 @@ import GamePage from "./game/GamePage.svelte"
 import WelcomPage from "./welcom/WelcomPage.svelte"
 // import {initDictionnary} from "./logic/dico"
 import {initDatabase} from "./logic/DB"
+import {resetMolangeur} from "./logic/molangeur"
 
 // let page = "game"
 let page = "welcom"
@@ -37,6 +38,7 @@ initDatabase(()=>{
             
         </div>
         <img src="../images/molangeur_logo.png" alt="" on:click={()=>{
+            resetMolangeur(()=>console.log("MOLANGEUR WAS RESET!"))
             page = "welcom"
         }}>
     </div>

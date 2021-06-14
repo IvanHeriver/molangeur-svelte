@@ -120,6 +120,13 @@ const createGameStateStore = () => {
             return state
         })
     }
+    const setHistory = (history) => {
+        // console.log("AAAAAAAAAAAAAAAAAA", history)
+        update(state => {
+            state.history = history
+            return state
+        })
+    }
     return {
         subscribe,
         init: set,
@@ -138,6 +145,7 @@ const createGameStateStore = () => {
 
         setRound,
         setEvaluation,
+        setHistory,
         setGameOver,
         setNeedForNewImagePreview,
         setLettersLeft,

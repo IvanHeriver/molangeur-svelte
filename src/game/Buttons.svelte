@@ -9,15 +9,14 @@
 
     $: {
         if ($GameStateStore) {
-            if (
-                $GameStateStore.evaluation &&
-                $GameStateStore.evaluation.is_position_valid && 
-                $GameStateStore.evaluation.is_word_valid
-            ) {
-                word_submission_possible = true
-            } else {
-                word_submission_possible = false
-            }
+            word_submission_possible = ($GameStateStore.evaluation && $GameStateStore.evaluation.validity)
+            // if (
+            //     $GameStateStore.evaluation 
+            // ) {
+            //     word_submission_possible = true
+            // } else {
+            //     word_submission_possible = false
+            // }
         }
     }
     

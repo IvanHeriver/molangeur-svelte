@@ -1,6 +1,7 @@
 import {get} from 'svelte/store'
 import {GameStateStore} from "./GameStore"
-import {evaluateBoard, submitWord, newGame, loadGame, updateGameImagePreview} from "../logic/game"
+// import {evaluateBoard, submitWord, newGame, loadGame, updateGameImagePreview} from "../logic/game"
+import {submitWord, newGame, loadGame, updateGameImagePreview} from "../logic/game"
 
 const getEmptyRackSlote = (GSS) => {
     const occupied_slot = GSS.letters.filter(e=>!e.board).map(e=>e.index)
@@ -35,7 +36,7 @@ export const moveAllFreeLettersToRack = () => {
 
 export const unsetGame = () => GameStateStore.init(null)
 
-export const setGame = (id, player_id, round, n_letters_left, players, board, rack) => {
+export const setGame = (id, player_id, round, n_letters_left, players, board, rack, history) => {
     const GSS = get(GameStateStore)
     if (GSS === null) {
         rack = rack.map((e, i) => {
@@ -50,6 +51,7 @@ export const setGame = (id, player_id, round, n_letters_left, players, board, ra
             players: players,
             letters: [...board, ...rack],
             molangeur: {next_score: 0, current_words: null, next_words: null},
+            history: history,
         })
         GameStateStore.setNeedForNewImagePreview()
     } else {
@@ -90,6 +92,9 @@ export const setGame = (id, player_id, round, n_letters_left, players, board, ra
             }
         })
         GameStateStore.setPlayers(players)
+        // console.log("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", history)
+        // console.log("setHistory", history)
+        GameStateStore.setHistory(history)
         GameStateStore.setEvaluation(false)
         GameStateStore.setRound(round)
         GameStateStore.setNeedForNewImagePreview()
@@ -97,7 +102,14 @@ export const setGame = (id, player_id, round, n_letters_left, players, board, ra
     }
 }
 
-
+export const resetMolangeur = () => {
+    GameStateStore.setMolangeur({
+        next_score: null,
+        current_words: null,
+        next_words: null,
+        searching: true, 
+    })
+}
 export const updateMolangeur = (words=null) => {
     const GSS = get(GameStateStore)
     if (words) {
@@ -115,7 +127,6 @@ export const updateMolangeur = (words=null) => {
             searching: true, 
         })
     }
-    
 }
 
 export const askForNewGame = () => {
@@ -130,18 +141,18 @@ export const setupGame = (id) => {
     }
 }
 
-export const askBoardEvaluation = () => {
-    const GSS = get(GameStateStore)
-    const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free)
-    const fixed_letters_on_board = GSS.letters.filter(e=>e.board && !e.free)
-    const evaluation = evaluateBoard(fixed_letters_on_board, free_letters_on_board)
-    GameStateStore.setEvaluation(evaluation)
-}
+// export const askBoardEvaluation = () => {
+//     const GSS = get(GameStateStore)
+//     const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free)
+//     const fixed_letters_on_board = GSS.letters.filter(e=>e.board && !e.free)
+//     const evaluation = evaluateBoard(fixed_letters_on_board, free_letters_on_board)
+//     GameStateStore.setEvaluation(evaluation)
+// }
 
 export const askForWordSubmission = (id, player_id) => {
     const GSS = get(GameStateStore)
     const free_letters_on_board = GSS.letters.filter(e=>e.board && e.free)
-    submitWord(id, player_id, free_letters_on_board, GSS.molangeur.next_score)
+    submitWord(id, player_id, free_letters_on_board, GSS.molangeur)
 }
 
 export const newGameImagePreviewUpdate = (id, image_data) => {

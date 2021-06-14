@@ -56,6 +56,16 @@ export const initMolangeur = (callback) => {
     })
 
 }
+
+export const resetMolangeur = (callback) => {
+    Object.keys(callbacks).map(e=>delete callbacks[e])
+    WORKER.terminate()
+    // let id = makeID()
+    initMolangeur(callback)
+    // callbacks = {}
+    // callbacks[id] = callback
+    // WORKER.postMessage({code: "reset", id: id})
+}
 // this is the only non-worker function
 export const checkWord = (word) => {
     const check = (word, k=0, D=DICO) => {
@@ -73,27 +83,135 @@ export const getDictionnary = (callback) => {
 }
 
 export const molangeur = (letters, callback) => {
-    console.log("MOLANGEUR")
+    console.log("MOLANGEUR LAUNCHED")
     let id = makeID()
     callbacks[id] = callback
     WORKER.postMessage({code: "molangeur", id: id, content: letters})
 }
 
 export const checkBoard = (letters) => {
-    // const submitted_letters = letters.filter(e=>e.board && e.free)
-    // const existing_letters = letters.filter(e=>e.board && !e.free)
-    // const existing_letters_arr = buildBoardIndexArray(existing_letters)
+    const submitted_letters = letters.filter(e=>e.board && e.free)
+    if(submitted_letters.length===0) return false
+    console.log("check 0")
+    
+    // check basic positioning: all free letters and same row or same column
+    const row_col = submitted_letters.map(e=>MAPPING.FROM_INDEX[e.index])
+    const rows = unique(row_col.map(e=>e.row))
+    const cols = unique(row_col.map(e=>e.col))
+    // const is_horizontal = rows.length === 1
+    if (cols.length != 1 && rows.length != 1) return false // no same row / same col
+    console.log("check 1")
 
-    // // for each submitted letter, see if it is on center cell or has a neighor
-    // const row_col = submitted_letters.sort((a, b)=>a.index - b.index).map(e=> MAPPING.FROM_INDEX[e.index])
-    // // const n_row_col = {row: unique(row_col.map(e=>e.row)).length, col: unique(row_col.map(e=>e.col)).length}
-    // // const is_word_horizontal = n_row_col.row === 1
-    // const is_word_horizontal = unique(submitted_letters.sort((a, b)=>a.index - b.index)
-    //     .map(e=> MAPPING.FROM_INDEX[e.index].row)).length === 1
-    // console.log("***********************************")
+    // sort submitted letters and get words from the first letters
+    submitted_letters.sort((a, b) => a.index - b.index)
+    const letters_arr = buildBoardIndexArray(letters)
+    const words_from_first_letter = [
+        findVerticalAndHorizontalWordsFromIndex(letters_arr, submitted_letters[0], "h"), 
+        findVerticalAndHorizontalWordsFromIndex(letters_arr, submitted_letters[0], "v"), 
+    ]
+    if (words_from_first_letter.length === 0) return false // only one letter words
+    if (words_from_first_letter.filter(w=>w.filter(l=>l.letter==="").length>0).length>0) return false
+    console.log("check 2")
+
+    // find out the directon of the main words: if there is only one free letter, its the longest word
+    // otherwise its the word containing the most free letters
+    const words_length = words_from_first_letter.map(w=>w.length)
+    const words_n_free_letters = words_from_first_letter.map(w=>w.filter(l=>l.free).length)
+    console.log("+++++++++++++++++++++++++++")
+    console.log("words_from_first_letter", words_from_first_letter)
+    console.log("words_length", words_length)
+    console.log("words_n_free_letters", words_n_free_letters)
+    console.log("submitted_letters", submitted_letters)
+    console.log("submitted_letters.length", submitted_letters.length)
+    console.log("Math.max(...words_length)", Math.max(...words_length))
+    console.log("words_length.indexOf(Math.max(...words_length))", words_length.indexOf(Math.max(...words_length)))
+    console.log("Math.max(...words_n_free_letters)", Math.max(...words_n_free_letters))
+    console.log("words_n_free_letters.indexOf(Math.max(...words_n_free_letters))", words_n_free_letters.indexOf(Math.max(...words_n_free_letters)))
+    const is_horizontal = (submitted_letters.length === 1 ?
+         (words_length.indexOf(Math.max(...words_length)) === 0) : 
+         (words_n_free_letters.indexOf(Math.max(...words_n_free_letters)) === 0)
+    )
+    console.log('is_horizontal', is_horizontal)
+    console.log("+++++++++++++++++++++++++++")
+
+    // retrieve number of free letters in main words, it must match the number of submitted letters
+    // const n_fixed_letters = words_from_first_letter.map(e=>e.filter(l=>!l.free).length).reduce((a, b)=>a+b)
+    const n_free_letters = words_from_first_letter[is_horizontal ? 0 : 1].filter(e=>e.free).length
+    // console.log()
+    // console.log(words_from_first_letter)
+    // console.log(words_length)
+    // console.log(is_horizontal)
+    // console.log(n_fixed_letters)
+    // console.log(n_free_letters)
+    // console.log(submitted_letters.length)
     // console.log(submitted_letters)
-    // console.log(existing_letters)
-    // console.log(is_word_horizontal)
+    if (n_free_letters !== submitted_letters.length) return false // there are holes between the free letters
+    console.log("check 3")
+
+    // get the adjaccent words for all the other letters
+    const next_letters = submitted_letters.slice(1)
+    const other_words = next_letters.map(l=>findVerticalAndHorizontalWordsFromIndex(letters_arr, l, is_horizontal ? "v" : "h"))
+    const all_words = [
+        words_from_first_letter[is_horizontal ? 0 : 1],
+        words_from_first_letter[is_horizontal ? 1 : 0],
+         ...other_words
+        ].filter(e=>e.length>0)
+
+    const n_fixed_letters = all_words.map(w=>w.filter(l=>!l.free).length).reduce((a, b)=>a+b)
+    console.log("+++++++++++++++++++++++++++")
+    console.log("all_words", all_words)
+    console.log("n_fixed_letters", n_fixed_letters)
+    console.log("n_free_letters", n_free_letters)
+    console.log("+++++++++++++++++++++++++++")
+    if (n_fixed_letters === 0) {
+        // there are no connexion with other letter and none of the 
+        // free letter is on the center cell
+        if (submitted_letters.filter(e=>e.index === 112).length === 0) return false 
+    }
+    console.log("check 4")
+    // check the words validity
+    const words = all_words.map(e=>e.map(l=>l.letter).reduce((a, b)=>a+b))
+    const validities = words.map(e=>checkWord(e))
+    const validity = validities.filter(e=>!e).length===0
+    if (!validity) {
+        // one the word is not validity
+        return {
+            is_horizontal, all_words, words,validities, validity
+        }
+    }
+    console.log("check 5")
+
+    // compute score
+    const scores = all_words.map(w=>{
+        let p = w.map(l=>l.points * l.multi_L).reduce((a, b)=>a+b)
+        let m = w.map(l=>l.multi_W).reduce((a, b)=>a*b)
+        // console.log("...")
+        // console.log("p", p)
+        // console.log("m", m)
+        // console.log("p*m", p * m )
+        // console.log("n_free_letters", n_free_letters)
+        return p*m
+    })
+    // console.log(scores)
+    const score = scores.reduce((a, b) => a+b) + (n_free_letters === 7 ? 50 : 0)
+
+    // last letter index
+    // const last_letter_index = words_from_first_letter[is_horizontal ? 0 : 1].slice(-1)[0].index
+    
+    console.log("#########################")
+    console.log("##  BOARD CHECK VALID  ##")
+    console.log("is_horizontal", is_horizontal)
+    console.log("all_words", all_words)
+    console.log("words", words)
+    console.log("validities", validities)
+    console.log("scores", scores)
+    console.log("score", score)
+    // console.log("last_letter_index", last_letter_index)
+    console.log("#########################")
+    return {
+        is_horizontal,all_words,words,validities,validity,scores,score
+    }
+
 }
 
 const unique = (arr) => {
@@ -106,6 +224,54 @@ const buildBoardIndexArray = (letters) => {
     return arr
 }
 
+
+const findVerticalAndHorizontalWordsFromIndex = (all_letters_arr, letter, direction="h") => {
+    // const getLtrs = (index, ltr=[], pts=[], mult_ltr=[], mult_word=[], dir="left") => {
+    const getLetterConfig = (letter) => {
+        let ltr, pts, ml, mw
+        // if letter is not free
+        if (!letter.free) {
+            ml = 1
+            mw = 1
+        } else {
+            ml = POINTS[letter.index].letter_mutliplier
+            mw = POINTS[letter.index].word_multiplier
+        }
+        // if letter is not a joker
+        if (letter.letter!== "_") {
+            ltr = letter.letter
+            pts = LETTERS[letter.letter].pts
+        } else {
+            ltr = letter.joker
+            pts = 0
+        }
+        return {letter: ltr, points: pts, multi_L: ml, multi_W: mw, free: letter.free, index: letter.index}
+    }
+    const getLtrs = (index, result=[], dir="left") => {
+        let n = MAPPING.NEIGHBORS[index][dir]
+        if (n !== null && all_letters_arr[n] !== null) {
+            result.push(getLetterConfig(all_letters_arr[n]))
+            getLtrs(n, result, dir)
+        }
+        return result
+    }
+    const center = getLetterConfig(letter)
+    let dirs = ["left", "right"]
+    if (direction !== "h") dirs = ["top", "bottom"]    
+    const before   = getLtrs(letter.index, [], dirs[0])
+    const after  = getLtrs(letter.index, [], dirs[1])
+    const word = [
+        ...before.reverse(), 
+        center,
+        ...after
+    ]
+    return word.length === 1 ? [] : word
+}
+
+
+// ==================================================================
+// ==================================================================
+// ==================================================================
 // FIXME: to delete!!!
 // obsolete, I should use the POINTS constant instead
 export const computeWordScore = (letters) => {

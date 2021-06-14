@@ -14,43 +14,35 @@
     }
     const getTime = (x) => {
         let d = new Date(x)
-        return d.toLocaleTimeString()
+        d = d.toLocaleTimeString().split(":")
+        return d[0]+":"+d[1]
     }
 </script>
 
 <div class="game" on:click={()=>onclick(game.id)}>
     <div class="title">
-        <div class="main">Partie créée le <span class="bold">{getDate(game.create_date)}</span>
-           à <span class="bold">{getTime(game.create_date)}</span></div>
+        <div class="main">
+            <div> Partie créée le <span class="bold">{getDate(game.create_date)}</span>
+           à <span class="bold">{getTime(game.create_date)}</span>
+            </div>
+            <div>Dernière modification le <span class="bold">{getDate(game.update_date)}</span>
+                à <span class="bold">{getTime(game.update_date)}</span></div>
+        </div>
         <div class="secondary">
-           <!-- <span class="id">
-               {`(id #${game.id})`}
-           </span> -->
            <button class="simple" on:click={onDelete}>
                Supprimer
            </button>
         </div>
     </div>
-    <div>Dernière modification le <span class="bold">{getDate(game.update_date)}</span>
-        à <span class="bold">{getTime(game.update_date)}</span></div>
+    <!-- <div>Dernière modification le <span class="bold">{getDate(game.update_date)}</span>
+        à <span class="bold">{getTime(game.update_date)}</span></div> -->
     <div>Score: <span class="bold">{game.players[0].score}</span></div>
     <div>Score de Maître MoLangeur: <span class="bold">{game.players[0].molangeur}</span></div>
-    <!-- <div>Différence de score: <span class="bold">{game.players[0].molangeur - game.players[0].score}</span></div> -->
-    <!-- <div>Nombre de tours faits: <span class="bold">{game.round}</span></div> -->
-    <!-- <div class="content"> -->
-    <!-- <img src={game.img} alt="" width="200px" height="200px"> -->
+
     <div class="img">
         <img src={game.img} alt="">
     </div>
     
-           <!-- <div class="info">
-               <div>Ton score: <span class="bold">{game.players[0].score}</span></div>
-               <div>Score de Maître MoLangeur: <span class="bold">{game.players[0].molangeur}</span></div>
-               <div>Différence de score: <span class="bold">{game.players[0].molangeur - game.players[0].score}</span></div>
-               <div>Nombre de tours faits: <span class="bold">{game.round}</span></div>
-
-           </div> -->
-    <!-- </div> -->
 </div>
 
 <style>
@@ -70,11 +62,10 @@
         padding: 0.5em;
         border-radius: 0.25em;
         cursor: pointer;
-        /* margin-bottom: 0.25em; */
         max-width: 400px;
     }
     .game:hover {
-        background-color: rgb(223, 223, 223);
+        background-color: rgb(245, 245, 245);
     }
 
     .title {
@@ -83,15 +74,6 @@
         align-items: center;
         border-bottom: 1px solid grey;
     }
-    /* .date {
-        font-weight: bold;
-    } */
-    /* .content {
-        display: flex;
-        justify-content: flex-start;
-        font-size: 0.9em;
-        padding-top: 0.5em;
-    } */
 
     .bold {
         font-weight: bold;

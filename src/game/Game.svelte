@@ -43,6 +43,7 @@
                     //         return false
                     //     } 
                     // }
+                    console.log(node)
                     return true
                 }
             }).then((dataUrl)=>{
@@ -127,7 +128,7 @@
             <BoardOverlay game={locationFunctions}/>
             {#each board as e, i}
                 <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}>
-                    <span style='font-size: 0.7em'>{i}</span>
+                    <!-- <span style='font-size: 0.7em'>{i}</span> -->
                 </div>
             {/each}
         </div>
@@ -166,6 +167,7 @@
         width: calc(var(--REF-SIZE) + var(--S)) ;
         padding: calc(var(--S) / 2);
         padding-bottom: 0;
+        user-select: none;
     }
     .game {
         /* outline: 1px solid black; */
@@ -178,6 +180,7 @@
         font-size: calc(var(--REF-SIZE)*0.02);
         width: var(--REF-SIZE);
         height: calc(var(--REF-SIZE)* var(--TOTAL) / 15);
+        user-select: none;
     }
     .board {
         /* outline: 2px solid pink; */
@@ -188,12 +191,14 @@
 
         height: calc(100% * var(--BOARD));
         width: var(--REF-SIZE);
+        user-select: none;
     }
     .rack {
         /* outline: 2px solid rgb(0, 132, 255); */
 
         height: calc(100% * var(--RACK));
         width: calc(100%);
+        user-select: none;
     }
 
 
@@ -246,6 +251,7 @@
         height: 50%;
         transform: translate(50%, 50%);
         /* margin:  */
+        user-select: none;
     }
     
     
