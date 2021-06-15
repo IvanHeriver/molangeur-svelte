@@ -1,3 +1,10 @@
+:root {
+	--xstrong-col: hsl(0, 48%, 33%);
+	--strong-col: hsl(0, 48%, 50%);
+	--medium-col: hsl(0, 48%, 66%);
+	--light-col: hsl(0, 48%, 80%);
+	--xlight-col: hsl(0, 48%, 90%);
+}
 * {
 	box-sizing: border-box;
 }
@@ -26,24 +33,25 @@ body {
 }
 
 button {
-	border: 1px solid black;
-	border-radius:0.5em;
-	background: none;
+	border: 1px solid var(--xlight-col);
+	border-bottom: 3px solid var(--xstrong-col);
+	/* padding: 5rem; */
+	/* border-radius:0.5em; */
+	background-color: var(--xlight-col);
 	cursor: pointer;
-
 	font-size: 1em;
 }
 button[disabled] {
 	cursor: not-allowed;
 }
 button:not([disabled]):hover {
-	background-color: rgb(243, 243, 243);
+	background-color: var(--light-col);
 }
 
 input {
-	border: 1px solid black;
-	background-color: rgb(250, 250, 250);
-	border-radius:0.5em;
+	border: 1px solid var(--light-col);
+	border-bottom: 3px solid var(--xstrong-col);
+	/* border-radius:0.5em; */
 	padding: 0.5em;
 }
 
@@ -52,6 +60,7 @@ button.simple {
 	border-radius:none;
 	color: grey;
 	text-decoration: underline;
+	background-color: transparent;
 	font-size: 0.9em;
 }
 button.simple:hover {

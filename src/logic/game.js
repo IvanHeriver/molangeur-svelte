@@ -7,7 +7,6 @@ import * as DB from "./DB"
 
 const updateGameStructure = (game) => {
     if (!game.history) {
-        console.log("updated game history")
         game.history = []
         DB.updateGame(game)
     }
@@ -15,7 +14,6 @@ const updateGameStructure = (game) => {
 export const loadGame = (id) => {
     GSI.unsetGame()
     DB.getGame(id, (game) => {
-        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", game)
         updateGameStructure(game)
         const player_id = game.players[0].id
         const player_index = game.players.map(e=>e.id).indexOf(player_id)
@@ -84,28 +82,13 @@ export const newGame = () => {
     //     update_date: Date.now(),
     //     create_date: Date.now(),
     // }
-    // let GAME = {
-    //     bag: createBag(),
-    //     board: [
-    //         {id: "222", letter: "A", index: 96, board: true, free: false},
-    //         {id: "000", letter: "M", index: 97, board: true, free: false},
-    //         {id: "111", letter: "_", index: 112, board: true, free: false, joker: "E"},
-    //     ],
-    //     players: [{
-    //         id: Math.random().toString().slice(2),
-    //         rack: [],
-    //         score: 0,
-    //         molangeur: 0,
-    //     }],
-    //     round: 0,
-    //     type: "solo-duplicate",
-    //     id: Math.random().toString().slice(2),
-    //     update_date: Date.now(),
-    //     create_date: Date.now(),
-    // }
     let GAME = {
         bag: createBag(),
-        board: [],
+        board: [
+            {id: "222", letter: "A", index: 82, board: true, free: false},
+            {id: "000", letter: "M", index: 97, board: true, free: false},
+            {id: "111", letter: "E", index: 112, board: true, free: false},
+        ],
         players: [{
             id: Math.random().toString().slice(2),
             rack: [],
@@ -117,8 +100,23 @@ export const newGame = () => {
         id: Math.random().toString().slice(2),
         update_date: Date.now(),
         create_date: Date.now(),
-        history: [],
     }
+    // let GAME = {
+    //     bag: createBag(),
+    //     board: [],
+    //     players: [{
+    //         id: Math.random().toString().slice(2),
+    //         rack: [],
+    //         score: 0,
+    //         molangeur: 0,
+    //     }],
+    //     round: 0,
+    //     type: "solo-duplicate",
+    //     id: Math.random().toString().slice(2),
+    //     update_date: Date.now(),
+    //     create_date: Date.now(),
+    //     history: [],
+    // }
     // draw first letters from bag ...
     const drawing_result = drawLetters(GAME.bag, GAME.players[0].rack, GAME.round)
     // ... and add them to the player's rack
@@ -158,16 +156,12 @@ export const updateGameImagePreview = (id, image_data) => {
 }
 
 export const submitWord = (id, player_id, free_letters_on_board, molangeur) => {
-
-    console.log("submitWord")
     DB.getGame(id, (game) => {
         // retrieve player index:
         const player_index = game.players.map(e=>e.id).indexOf(player_id)
-        // console.log(player_index)
         // compute evaluation
         // const evaluation  = evaluateBoard(game.board, free_letters_on_board)
         const evaluation = MOLANGEUR.checkBoard([...game.board, ...free_letters_on_board])
-        console.log(evaluation)
         if (evaluation && evaluation.validity) {
             // add letters to board
             const new_fixed_letters_on_board = free_letters_on_board.map(e=>{
@@ -243,11 +237,6 @@ export const submitWord = (id, player_id, free_letters_on_board, molangeur) => {
 }
 
 const getHistoryEntry = (player_id, new_letters, evaluation, molangeur) => {
-    console.log("###############################################")
-    console.log("###############################################")
-    console.log(new_letters)
-    console.log(evaluation)
-    console.log(molangeur)
     let rank = 0
     let current_score = +Infinity
     let current_n_better_words = 0
@@ -266,7 +255,6 @@ const getHistoryEntry = (player_id, new_letters, evaluation, molangeur) => {
         cumulative_n_better_words++
         return e
     })
-    console.log(ranks)
     let current_rank = ranks.filter(e=>{
         return (
         e.word === evaluation.words[0] &&
@@ -282,7 +270,15 @@ const getHistoryEntry = (player_id, new_letters, evaluation, molangeur) => {
         console.warn("molangeur", molangeur)
         console.warn("ranks", ranks)
         console.warn("current_rank", current_rank)
-
+        current_rank = ranks.filter(e=>{
+            return (
+            e.pts === evaluation.score
+            )
+        })
+        if (current_rank[0]) {
+            word_rank = current_rank[0].rank
+            n_better_words = current_rank[0].n_better_words
+        }
     } else {
         word_rank = current_rank[0].rank
         n_better_words = current_rank[0].n_better_words
@@ -295,8 +291,6 @@ const getHistoryEntry = (player_id, new_letters, evaluation, molangeur) => {
         n_better_words: n_better_words,
         molangeur: molangeur.next_score,
     }
-    console.log(historyEntry)
-    console.log("###############################################")
     return historyEntry
 }
 

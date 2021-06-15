@@ -5,15 +5,13 @@
     import {LETTERS} from "../logic/constants"
     import {getIndexFromRowCol, getRowColIndex} from "../logic/utils"
 
+    let scrollable_elem
     $: words_list = []
     $: selected = -1
     $: has_something_to_show = true
     $: {
         if ($GameStateStore) {
-            // console.log($GameStateStore.molangeur)
             words_list = $GameStateStore.molangeur.current_words
-            console.log($GameStateStore.molangeur.next_words)
-            // first_round = $GameStateStore.round === 0
             has_something_to_show = $GameStateStore.molangeur.current_words !== null
         }
     }
@@ -55,7 +53,7 @@
         <div class="title">
                 {`Maître MoLangeur avait trouvé ${words_list.length} mots et positions valides: `}
         </div>
-        <div class="best-words-list">
+        <div class="best-words-list" bind:this={scrollable_elem}>
             {#each words_list as word, i}
                 <div class="word"
                 on:mouseover={()=>showWord(i)}
@@ -93,15 +91,13 @@
 
 <style>
     .container {
-        padding: 5px;
         font-size: 1em;
-        padding: calc(var(--S) * 0.35);
+        width: 100%;
     }
     .best-words-list {
         border: 1px solid rgb(231, 231, 231);
-        height: 600px;
+        height: 100%;
         overflow: auto;
-        flex-grow: 1;
     }
 
     .word {
@@ -125,7 +121,6 @@
         background-repeat: no-repeat;
         background-position-x:center;
         background-position-y:center;
-        /* height: 1em; */
     }
     .pos-v {
         background-image: url("../images/arrow_v.svg");

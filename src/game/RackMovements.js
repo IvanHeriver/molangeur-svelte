@@ -22,10 +22,6 @@ const init = (rack_letters, grab_letter) => {
         return e
     })
     rack_tmp = [...rack]
-
-    // console.log(rack)
-    // console.log(rack_tmp)
-    // console.log(current)
 }
 
 const update  = (index) => {

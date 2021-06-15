@@ -1,11 +1,6 @@
 <script>
     import {checkWord} from "../logic/molangeur"
 
-    // let DICO = getDictionnary()
-    // getDictionnary((d)=> {
-    //     console.log(d)
-    //     DICO = d
-    // })
 
     let dictionnary_valid_word = null
     let word_to_check = ""
@@ -27,7 +22,14 @@
 </script>
 
 <div class="container">
-    <input type="text" placeholder="Dictionnaire" bind:value={word_to_check} on:keyup={checkWordValidity} onkeypress="return (event.key.length === 1 && /[A-Za-zéèëêîïûôâàç]/.test(event.key))">
+    <div class="input-div">
+        <input type="text" placeholder="Dictionnaire" bind:value={word_to_check} on:keyup={checkWordValidity} onkeypress="return (event.key.length === 1 && /[A-Za-zéèëêîïûôâàç]/.test(event.key))">
+        <button class="reset-input" on:click={()=>{{
+            word_to_check=""
+            dictionnary_valid_word=null
+            }}}>x</button>
+    </div>
+    
     {#if dictionnary_valid_word === null }
         {""}
     {:else if dictionnary_valid_word}
@@ -58,6 +60,24 @@
         color: green;
     }
     .invalid {
-        color: rgb(133, 0, 0)
+        color: rgb(168, 0, 0)
+    }
+
+    .input-div {
+        display: flex;
+        justify-content: center;
+        /* align-items: stretch; */
+        height: 50%;
+    }
+    input {
+        height: 4ch;
+        border-right: none;
+    }
+    button.reset-input {
+        width: 100%;
+        height: 4ch;
+        border-left: none;
+        /* margin: 0; */
+        /* flex-grow: 1; */
     }
 </style>

@@ -8,9 +8,7 @@ const callbacks = {}
 
 let DICO
 export const initMolangeur = (callback) => {
-    console.log("WORKER-initMolangeur")
     if (window.Worker) {
-        console.log("new Worker('molangeur.js')")
         WORKER = new Worker('molangeur.js')
         
     } else {
@@ -19,13 +17,11 @@ export const initMolangeur = (callback) => {
         Cela inclue le maître MoLangeur, l'algorithme permettant de trouver le meilleur mot dans une situation donnée.`)
         WORKER = {addEventListener: () => {}, postMessage: () => {}}
     }
-    console.log("WORKER-addEventListener")
     WORKER.addEventListener("message", (e)=>{
         const msg = e.data
-        console.log(`message received: ${msg.id}`);
-        console.log(msg)
         if (msg.id && callbacks[msg.id]) {
             callbacks[msg.id](msg.content)
+            if (msg.all_words) console.warn(msg.all_words)
             delete callbacks[msg.id]
         }
     })
@@ -49,7 +45,6 @@ export const initMolangeur = (callback) => {
         words.map(w=>{
             DICO = addWordToDico(w, DICO)
         })
-        console.log("WORKER-postMessage-init")
         WORKER.postMessage({code: "init", id: id, content: {
             LETTERS, LTRS, POINTS, MAPPING, WORD_POSITIONS, DICO
         }})
@@ -83,7 +78,6 @@ export const getDictionnary = (callback) => {
 }
 
 export const molangeur = (letters, callback) => {
-    console.log("MOLANGEUR LAUNCHED")
     let id = makeID()
     callbacks[id] = callback
     WORKER.postMessage({code: "molangeur", id: id, content: letters})
@@ -117,34 +111,14 @@ export const checkBoard = (letters) => {
     // otherwise its the word containing the most free letters
     const words_length = words_from_first_letter.map(w=>w.length)
     const words_n_free_letters = words_from_first_letter.map(w=>w.filter(l=>l.free).length)
-    console.log("+++++++++++++++++++++++++++")
-    console.log("words_from_first_letter", words_from_first_letter)
-    console.log("words_length", words_length)
-    console.log("words_n_free_letters", words_n_free_letters)
-    console.log("submitted_letters", submitted_letters)
-    console.log("submitted_letters.length", submitted_letters.length)
-    console.log("Math.max(...words_length)", Math.max(...words_length))
-    console.log("words_length.indexOf(Math.max(...words_length))", words_length.indexOf(Math.max(...words_length)))
-    console.log("Math.max(...words_n_free_letters)", Math.max(...words_n_free_letters))
-    console.log("words_n_free_letters.indexOf(Math.max(...words_n_free_letters))", words_n_free_letters.indexOf(Math.max(...words_n_free_letters)))
     const is_horizontal = (submitted_letters.length === 1 ?
          (words_length.indexOf(Math.max(...words_length)) === 0) : 
          (words_n_free_letters.indexOf(Math.max(...words_n_free_letters)) === 0)
     )
-    console.log('is_horizontal', is_horizontal)
-    console.log("+++++++++++++++++++++++++++")
 
     // retrieve number of free letters in main words, it must match the number of submitted letters
     // const n_fixed_letters = words_from_first_letter.map(e=>e.filter(l=>!l.free).length).reduce((a, b)=>a+b)
     const n_free_letters = words_from_first_letter[is_horizontal ? 0 : 1].filter(e=>e.free).length
-    // console.log()
-    // console.log(words_from_first_letter)
-    // console.log(words_length)
-    // console.log(is_horizontal)
-    // console.log(n_fixed_letters)
-    // console.log(n_free_letters)
-    // console.log(submitted_letters.length)
-    // console.log(submitted_letters)
     if (n_free_letters !== submitted_letters.length) return false // there are holes between the free letters
     console.log("check 3")
 
@@ -158,11 +132,6 @@ export const checkBoard = (letters) => {
         ].filter(e=>e.length>0)
 
     const n_fixed_letters = all_words.map(w=>w.filter(l=>!l.free).length).reduce((a, b)=>a+b)
-    console.log("+++++++++++++++++++++++++++")
-    console.log("all_words", all_words)
-    console.log("n_fixed_letters", n_fixed_letters)
-    console.log("n_free_letters", n_free_letters)
-    console.log("+++++++++++++++++++++++++++")
     if (n_fixed_letters === 0) {
         // there are no connexion with other letter and none of the 
         // free letter is on the center cell
@@ -185,14 +154,8 @@ export const checkBoard = (letters) => {
     const scores = all_words.map(w=>{
         let p = w.map(l=>l.points * l.multi_L).reduce((a, b)=>a+b)
         let m = w.map(l=>l.multi_W).reduce((a, b)=>a*b)
-        // console.log("...")
-        // console.log("p", p)
-        // console.log("m", m)
-        // console.log("p*m", p * m )
-        // console.log("n_free_letters", n_free_letters)
         return p*m
     })
-    // console.log(scores)
     const score = scores.reduce((a, b) => a+b) + (n_free_letters === 7 ? 50 : 0)
 
     // last letter index
@@ -206,7 +169,6 @@ export const checkBoard = (letters) => {
     console.log("validities", validities)
     console.log("scores", scores)
     console.log("score", score)
-    // console.log("last_letter_index", last_letter_index)
     console.log("#########################")
     return {
         is_horizontal,all_words,words,validities,validity,scores,score

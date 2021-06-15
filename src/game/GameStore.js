@@ -84,7 +84,6 @@ const createGameStateStore = () => {
     }
 
     const setMolangeur = (molangeur) => {
-        console.log(molangeur)
         update(state => {
             state.molangeur = molangeur
             return state;
@@ -121,7 +120,6 @@ const createGameStateStore = () => {
         })
     }
     const setHistory = (history) => {
-        // console.log("AAAAAAAAAAAAAAAAAA", history)
         update(state => {
             state.history = history
             return state

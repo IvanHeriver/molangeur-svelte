@@ -1,6 +1,6 @@
 export const LETTERS = {
-    // _: {pts: 0, n: 10, vowel: true, consonant: true},
-    _: {pts: 0, n: 2, vowel: true, consonant: true},
+    _: {pts: 0, n: 10, vowel: true, consonant: true},
+    // _: {pts: 0, n: 2, vowel: true, consonant: true},
     A: {pts: 1, n: 9, vowel: true, consonant: false},
     B: {pts: 3, n: 2, vowel: false, consonant: true},
     C: {pts: 3, n: 2, vowel: false, consonant: true},

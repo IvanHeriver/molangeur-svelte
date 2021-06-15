@@ -1,3 +1,4 @@
+window.console.log = () => {}
 import App from './App.svelte';
 // import makeDictionnary from "./make_dictionnary"
 import {initMolangeur} from "./logic/molangeur"
@@ -11,7 +12,7 @@ const app = new App({
 });
 
 
-window.console.log = () => {}
+// window.addEventListener("scroll", ()=>{console.log("scroll")})
 // window.addEventListener('beforeunload', function (e) {
 // 	// Cancel the event
 // 	e.preventDefault(); // If you prevent default behavior in Mozilla Firefox prompt will always be shown

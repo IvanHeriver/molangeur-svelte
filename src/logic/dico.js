@@ -177,7 +177,6 @@ const iteratorMasterMolangeur = (index, configuration, results, callback) => {
         words = removeDuplicatedWords(words)
         callback(words)
     } else {
-        // console.log(`iteration ${index} out of ${configuration.words_positions.length}`)
         results = [
             ...results,
             getPossibleWordsForOneGroup(
@@ -312,13 +311,6 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
     const joker_positions = raw_found_words.map(e=>e.joker)
 
     let pos_multiplier = position_group.indices.map(e=>POINTS[e])
-    // console.log("-----------------")
-    // console.log("k=", position_group.indices[0])
-    // console.log(position_group)
-    // console.log(raw_found_words)
-    // console.log(pos_multiplier)
-    // console.log(vertical)
-    // console.log(arr_free_constraints)
     let adjacent_point
     if (vertical) {
         adjacent_point = position_group.indices.map(e=> {

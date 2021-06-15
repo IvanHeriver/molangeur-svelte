@@ -13,8 +13,6 @@
     }
     const getGameList = () => {
         getAllGames((list) => {
-            // list.map(e=>console.log(e))
-            // list.sort((a,b)=>b.update_date - a.update_date).map(e=>console.log(e))
             game_list = [...list.sort((a,b)=>b.update_date - a.update_date)]
         })
     }

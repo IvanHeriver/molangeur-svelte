@@ -1,7 +1,6 @@
 <script>
     
     import {afterUpdate} from "svelte"
-    // import html2canvas from "html2canvas"
     import domtoimage from "dom-to-image"
     import {newGameImagePreviewUpdate} from "./GameStateInterface"
 
@@ -13,50 +12,22 @@
 
     // import {onMount} from "svelte"
     export let width;
+    export let updateSize;
     let game, container, rack_element
 
     afterUpdate(()=>{
+        updateSize()
         if ($GameStateStore && $GameStateStore.image_preview_needed) {
             GameStateStore.setNeedForNewImagePreview(false)
-            // let img = document.querySelector("#html-2-canvas")
-            // html2canvas(container, {
-            //     backgroundColor: null,
-            //     // logging: true,
-            //     scale: 0.5,
-            //     scrollY: -window.scrollY,
-            //     // onclone: (e)=>{
-            //     //     console.log(e)
-            //     //     console.log(e.querySelector(".rack").hidden=true)
-            //     //     return e
-            //     // }
-            // }).then(function(canvas) {
-            //     let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
-            //     newGameImagePreviewUpdate($GameStateStore.id, image_data)
-            //     console.log("done")
-            // });
+
             console.time("dom-to-image")
             domtoimage.toPng(container, {
                 filter: (node) => {
-                    // if (node.className) {
-                    //     let a = node.className+""
-                    //     if (a.startsWith("rack")) {
-                    //         return false
-                    //     } 
-                    // }
-                    // console.log(node)
                     return true
                 }
             }).then((dataUrl)=>{
-            // domtoimage.toSvg(container).then((dataUrl)=>{
-                // var link = document.createElement('a');
-                // link.download = 'my-image-name.jpeg';
-                // link.href = dataUrl;
-                // link.click();
-                // let image_data = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
-                // console.log(dataUrl)
                 console.timeEnd("dom-to-image")
                 newGameImagePreviewUpdate($GameStateStore.id, dataUrl)
-                // console.log("done")
             })
         }
         
@@ -121,20 +92,28 @@
         }
         
     // askForNewGame();
+    const preventScrolling = (e)=>{
+            console.log("scroll_attempt")
+            e.preventDefault && e.preventDefault()
+            e.stopImmediatePropagation && e.stopImmediatePropagation();
+            e.stopPropagation && e.stopPropagation();
+    }
 </script>
 <div class="container" bind:this={container} style={`--REF-SIZE: ${width*15/16}px;--S: ${width/16}px;`}>
     <div class="game" bind:this={game}>
         <div class="board">
             <BoardOverlay game={locationFunctions}/>
             {#each board as e, i}
-                <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}>
+                <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}
+                on:touchmove={preventScrolling}
+                >
                     <!-- <span style='font-size: 0.7em'>{i}</span> -->
                 </div>
             {/each}
         </div>
-        <div class="rack" id="rack" bind:this={rack_element}>
+        <div class="rack" id="rack" bind:this={rack_element} >
             {#each rack as e, i}
-            <div class="rack-cell"  bind:this={e} style={`--pos:${getRackPos(i)};`} cid={i}>
+            <div class="rack-cell"  bind:this={e} style={`--pos:${getRackPos(i)};`} cid={i} on:touchstart={preventScrolling}>
                 <div class="rack-decoration">
 
                 </div>

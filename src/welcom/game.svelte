@@ -71,7 +71,7 @@
     .title {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         border-bottom: 1px solid grey;
     }
 

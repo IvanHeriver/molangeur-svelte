@@ -23,21 +23,25 @@
     let location;
     let grab_position = {x: null, y:null}
     let self;
+
     const handleEvent = (e) => {
         if (e.touches) {
-            e.preventDefault()
-            document.body.style.overflow = "hidden"
+            e.preventDefault && e.preventDefault()
+            e.stopImmediatePropagation && e.stopImmediatePropagation();
+            e.stopPropagation && e.stopPropagation();
             return e.touches[0]
         } else {
             return e
         }
     }
+    
     const dragStart = (e) => {
         let E = handleEvent(e)
         window.addEventListener("mousemove", dragMove)
         window.addEventListener("touchmove", dragMove, {passive: false})
         window.addEventListener("mouseup", dragEnd)
         window.addEventListener("touchend", dragEnd)
+        window.addEventListener("touchstart", handleEvent, {passive: false})
         grab = true;
         grab_position = game.getXY(E)
         location = game.getLocation(E)
@@ -45,7 +49,7 @@
         GameGimmickStore.setHoverLocation(location)
     }
     const dragMove = (e) => {
-        if (grab) {
+        // if (grab) {
             let E = handleEvent(e)
             grab_position = game.getXY(E)
             location = game.getLocation(E)
@@ -55,15 +59,15 @@
                 RM.reset()
             }
             GameGimmickStore.setHoverLocation(location)
-        }
+        // }
     }
     const dragEnd = (e) => {
-        document.body.style.overflow = "auto"
-        e.preventDefault()
+        handleEvent(e)
         window.removeEventListener("mousemove", dragMove)
         window.removeEventListener("touchmove", dragMove)
         window.removeEventListener("mouseup", dragEnd)
         window.removeEventListener("touchend", dragEnd)
+        window.removeEventListener("touchstart", handleEvent)
         if (!location.board && location.index !== undefined) { // if dropped on rack
             // update the rack letters' positions
             const new_rack_location = RM.get()

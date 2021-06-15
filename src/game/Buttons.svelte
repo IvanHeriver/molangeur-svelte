@@ -2,7 +2,7 @@
     import {GameStateStore} from "./GameStore"
     // import {checkWordValidity} from "../logic/dico"
     import Dico from "./Dico.svelte"
-    import {moveAllFreeLettersToRack, askForWordSubmission, askForNewGame} from "./GameStateInterface"
+    import {moveAllFreeLettersToRack, askForWordSubmission} from "./GameStateInterface"
 
 
     let word_submission_possible = false

@@ -2,6 +2,7 @@
     import {GameStateStore} from './GameStore'
     import {LETTERS} from "../logic/constants"
     import {getRowColIndex} from "../logic/utils" // FIXME: I should import all helper function: getNiceWordCoord() down below is a duplicate of what is defined in MasterMolangeur.svelte
+
     let judgments = [
         "Le meilleur score possible! Chapeau bas!",
         "Le meilleur score possible! Chapeau bas!",
@@ -20,10 +21,6 @@
         "Le meilleur score possible! Impressionnant!",
         "Le meilleur score possible! Impressionnant!",
     ]
-    // fetch("./texts.json").then(e=>e.json()).then(e=>{
-    //     judgments = e.judgments
-    //     console.log(judgments)
-    // })
     const getNiceWordCoord = (index) => {
         const row_names = Array(15).fill(0).map((e, i)=>i+1)
         const col_names = Object.keys(LETTERS).filter(e=>e!=="_").filter((e, i)=>i<15)
@@ -55,30 +52,16 @@
     $: game_over = false
     $: {
         if ($GameStateStore) {
-            // console.log("0000000000000000000000000000000000")
-            // console.log("0000000000000000000000000000000000")
             id = $GameStateStore.player_id
             let player = $GameStateStore.players.filter(e=>e.id === id)[0]
             let molangeur = $GameStateStore.molangeur
-            // console.log(player)
-            // console.log(molangeur)
             score = player ? player.score : 0
-            // molangeur_score = molangeur.score
             molangeur_score = player ? player.molangeur : 0
             molangeur_best = molangeur ? (molangeur.next_score ? molangeur.next_score : null) : null
-            // difference = molangeur_score - score
             n_remaining_letters = $GameStateStore.letters_left
-            // console.log($GameStateStore)
-            // console.log($GameStateStore.history)
             if ($GameStateStore.history && $GameStateStore.history.length>0) {
-                console.log("*************************")
-                console.log($GameStateStore.history)
-                // console.log($GameStateStore.history)
-                // console.log($GameStateStore.history)
                 let ranks = $GameStateStore.history.map(e=>e.rank)
-                console.log(ranks)
                 average_rank = ranks.reduce((a, b)=>a+b)/ranks.length
-                console.log(average_rank)
                 let last_game = $GameStateStore.history.slice(-1)[0]
                 last_rank = last_game.rank
                 last_score = last_game.evaluation.score
@@ -86,15 +69,7 @@
                 last_molangeur = last_game.molangeur
                 n_better_words = last_game.n_better_words !== undefined ? last_game.n_better_words : null
                 last_coord = getNiceWordCoord(last_game.evaluation.all_words[0][0].index)
-                console.log("*************************")
             }
-
-            // actions
-            // console.log(judgments)
-            // if (molangeur_best !== "...")
-            // check if there are any free letters on the board
-            console.log(" <<< $GameStateStore.evaluation >>> ")
-            console.log($GameStateStore.evaluation)
             judgment = ""
             word = ""
             game_over = $GameStateStore.game_over
@@ -116,7 +91,6 @@
                     action = ""
                 } else if ($GameStateStore.evaluation.validity) {
                     if (molangeur_best!==null && molangeur_best === $GameStateStore.evaluation.score) {
-                        // console.log(judgments)
                         judgment = judgments[Math.floor(Math.random() * judgments.length)]
                     }
                     word = `Le mot ${$GameStateStore.evaluation.words[0]} te rapporterai ${$GameStateStore.evaluation.score} points.`
@@ -125,8 +99,6 @@
             }
         }
     }
-
-
 
 </script>
 <div class="container">
@@ -171,6 +143,9 @@
             {/if}
             
         </div>
+        <!-- <div style='font-size: 0.8em;'>
+            {`${screen_res.x} x ${screen_res.y}`}
+        </div> -->
         <div>
             Lettres restantes: <span class="value">{n_remaining_letters}</span>
         </div>
@@ -198,11 +173,12 @@
     .container {
         font-size: 1em;
         /* background-color: rgb(255, 191, 191); */
+        width: 100%;
     }
     .score {
         border: 1px solid grey;
         border-radius: 0.25em;
-        background-color: rgba(201, 101, 101, 0.25);
+        background-color: var(--xlight-col);
         padding: 0.125em 0.25em;
         
     }
@@ -219,7 +195,7 @@
     }
     .value {
         font-weight: bold;
-        color: rgb(61, 0, 0);
+        color: var(--xstrong-col);
         
     }
     .state {
@@ -228,6 +204,7 @@
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
+        gap: 1em;
         /* background-color: rgb(191, 245, 255); */
     }
     .communication {

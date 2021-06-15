@@ -26,7 +26,9 @@ export const moveAllFreeLettersToRack = () => {
     const GSS = get(GameStateStore)
     const empty_slot = getEmptyRackSlote(GSS)
     let k = -1
-    GSS.letters.filter(e=>e.board && e.free).map(e=>{
+    GSS.letters.filter(e=>e.board && e.free)
+    .sort((a, b) => a.index - b.index)
+    .map(e=>{
         k++
         GameStateStore.moveLetter(e.id, false, empty_slot[k])
         GameStateStore.setJoker(e.id, "")
@@ -92,8 +94,6 @@ export const setGame = (id, player_id, round, n_letters_left, players, board, ra
             }
         })
         GameStateStore.setPlayers(players)
-        // console.log("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", history)
-        // console.log("setHistory", history)
         GameStateStore.setHistory(history)
         GameStateStore.setEvaluation(false)
         GameStateStore.setRound(round)

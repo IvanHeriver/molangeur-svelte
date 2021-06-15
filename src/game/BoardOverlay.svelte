@@ -35,8 +35,6 @@
             } else {
                 score_info = {...score_info_default}
             }
-            console.log(evaluation)
-            console.log(score_info)
             // dealing with joker picker
             joker_picker = $GameStateStore.jocker_picker
             // dealing with game over

@@ -38,7 +38,7 @@ initDatabase(()=>{
             
         </div>
         <img src="../images/molangeur_logo.png" alt="" on:click={()=>{
-            resetMolangeur(()=>console.log("MOLANGEUR WAS RESET!"))
+            resetMolangeur(()=>{})
             page = "welcom"
         }}>
     </div>
@@ -65,25 +65,32 @@ initDatabase(()=>{
     .container {
         display: flex;
         flex-direction: column;
-        align-items: stretch;
+        /* align-items: stretch; */
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
     }
     .header-navigation {
-        background-color: rgb(201, 101, 101);
-        height: 50px;
+        background-color: var(--strong-col);
+        height: 40px;
+        width: 100%;
         display: flex;
     }
     .header-navigation > img {
-        width: 250px;
-        height: 50px;
+        width: 200px;
+        height: 40px;
     }
     .navigation-toggle {
-        /* height: 50px;
-        width: 50px; */
         height: 0px;
         width: 0px;
     }
     .content {
-        padding: 5px;
+        /* padding: 1rem; */
+        width: 100%;
+        height: calc(100% - 40px);
+        overflow-y: auto;
     }
 
     img {
@@ -97,23 +104,25 @@ initDatabase(()=>{
         .header-navigation {
             width: 50px;
             flex-direction: column;
-            /* height: 100%;
-            min-height: 100vh; */
-            /* flex-grow: 1; */
-            height: 260px;
+            height: 100%;
         }
         .header-navigation > img {
+            width: 250px;
+            height: 50px;
             transform-origin: top left;
             transform: rotate(-90deg) translateX(-100%);
         }
         .content {
-            flex-grow: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            height: 100%;
         }
     }
+    @media screen and (min-width: 1350px) {
+        .content {
+            display: flex;
+            justify-content: center;
+        }
+    }
+    
 
     .loading {
         position: absolute;

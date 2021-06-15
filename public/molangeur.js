@@ -1,4 +1,4 @@
-console.log = () => {}
+// console.log = () => {}
 // const consoleLog = console.log
 // console.log = (msg) => {consoleLog("WORKER>>>", msg)}
 
@@ -30,8 +30,8 @@ const init = (constants, id) => {
 }
 
 const molangeur = (letters, id) => {
-    masterMolangeur(letters, (words) => {
-        postMessage({id: id, content: words})
+    masterMolangeur(letters, (words, all_words) => {
+        postMessage({id: id, content: words, all_words})
     })
     
 }
@@ -52,13 +52,11 @@ const molangeur = (letters, id) => {
 
 const masterMolangeur = (letters, callback) => {
     const configuration = initMasterMolangeur(letters)
-    const on_done = (words) => {
+    const on_done = (words, all_words) => {
         console.timeEnd("molangeur")
-        callback(words)
+        callback(words, all_words)
     }
     console.time("molangeur")
-    // cancel_work = false
-    // console.log(configuration)
     launchMasterMolangeur(configuration, on_done)
 }
 
@@ -81,6 +79,7 @@ const initMasterMolangeur = (letters) => {
     console.log("words_positions", words_positions)
     console.log("arr_fixed_letters", arr_fixed_letters)
     console.log("arr_free_constraints", arr_free_constraints)
+
     return {
         words_positions,
         free_letters,
@@ -104,10 +103,11 @@ const iteratorMasterMolangeur = (index, configuration, results, callback) => {
                 return 0
             }).sort((a, b) => b.pts - a.pts)
             // duplicates are due to letters that are in double in the player's rack
-            words = removeDuplicatedWords(words)
-            console.log("############################")
-            console.log(words)
-            callback(words)
+            const no_duplicated_words = removeDuplicatedWords(words)
+            // console.log("############################")
+            // console.log(words)
+            // console.log(no_duplicated_words)
+            callback(no_duplicated_words, words)
         } else {
             // console.log(`iteration ${index + 1} out of ${configuration.words_positions.length}`)
             results = [
@@ -132,7 +132,7 @@ const iteratorMasterMolangeur = (index, configuration, results, callback) => {
 }
 
 const removeDuplicatedWords = (arr) => {
-    let ids = arr.map(e=>e.word+e.index+e.dir)
+    let ids = arr.map(e=>e.word+e.index+e.dir+e.pts+e.joker.reduce((a, b)=>''+a+b, ''))
     let unique = [...(new Set(ids))]
     return arr.filter((e, i) => {
         let u = unique.indexOf(ids[i])
@@ -301,19 +301,30 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
         adjacent_point = position_group.indices.map((e, j)=> {
             if (arr_free_constraints[e]===null || arr_free_constraints[e].h===null) return null
             let obj = {}
-            arr_free_constraints[e].h.map((l, i)=> obj[l] = arr_free_constraints[e].p_h[i])
+            arr_free_constraints[e].h.map((l, i)=> {
+                // if (obj[l] !== undefined) {
+                //     if (arr_free_constraints[e].p_h[i] > obj[l]) {
+                //         obj[l]
+                //     }
+                // }
+                obj[l+(arr_free_constraints[e].l_j_h[i]?"1":"0")] = arr_free_constraints[e].p_h[i]
+            })
             return obj
         })
     } else {
         adjacent_point = position_group.indices.map(e=> {
             if (arr_free_constraints[e]===null || arr_free_constraints[e].v===null) return null
             let obj = {}
-            arr_free_constraints[e].v.map((l, i)=>obj[l] = arr_free_constraints[e].p_v[i])
+            // arr_free_constraints[e].v.map((l, i)=>obj[l] = arr_free_constraints[e].p_v[i])
+            arr_free_constraints[e].v.map((l, i)=> {
+                obj[l+(arr_free_constraints[e].l_j_v[i]?"1":"0")] = arr_free_constraints[e].p_v[i]
+            })
             return obj
         })
     }
 
     const word_letter_points = found_words.map((w, i)=>{
+
         let adj_points = 0
         let multi_word = 1
         let total_points = 0
@@ -326,23 +337,34 @@ const getPossibleWordsForOneGroup = (position_group, free_letters, arr_fixed_let
             //     console.log(joker_positions[i])
             //     console.log(pos_multiplier[k])
             // }
-            let p = (joker_positions[i].indexOf(k) === -1 ? LETTERS[w[k]].pts : 0)
+            let joker = joker_positions[i].indexOf(k) !== -1
+            let p = (joker ? 0 : LETTERS[w[k]].pts)
             if (fixed_c_pts[k] !== null) p = fixed_c_pts[k] 
             if (fixed_c[k]===null) {
                 p *= pos_multiplier[k].letter_mutliplier
                 multi_word *= pos_multiplier[k].word_multiplier
             } 
             if (adjacent_point[k]) {
-                adj_points = adj_points + adjacent_point[k][w[k]]
+                if (adjacent_point[k][w[k]+(joker?"1":"0")] === undefined) console.warn("undefined")
+                adj_points = adj_points + adjacent_point[k][w[k]+(joker?"1":"0")]
                 // let d = (joker_positions[i].indexOf(k) !== -1) ? LETTERS[w[k]].pts : 0
                 // a -= d
             }
             total_points += p
         }
         total_points *=  multi_word 
+        // if (!vertical && position_group.indices[0]===111 && i === 203) {
+        //     console.log("XXXX")
+        //     console.log("raw_found_words[i]", raw_found_words[i])
+        //     console.log("adjacent_point", adjacent_point)
+        //     console.log("adj_points", adj_points)
+        //     console.log("multi_word", multi_word)
+        //     console.log("total_points", total_points)
+        // }
+
         return total_points + adj_points + (n_letter_used[i] === 7 ? 50 : 0)
     })
-    // if ((position_group.indices[0]===38)) {
+    // if (!vertical && position_group.indices[0]===111) {
     //     console.log("................................")
     //     console.log("vertical", vertical)
     //     console.log("k=", position_group.indices[0])
@@ -392,31 +414,40 @@ const computeFreeConstrainsOfValidCells = (valid_cells, free_letters) => {
         // console.log("cell", cell)
         // console.log("ltrs", ltrs)
         let p = POINTS[cell.index]
-        let n_h, w_h, l_h, lp_h, p_h
+        let n_h, w_h, l_h, lp_h, p_h, l_j_h
         if (cell.horizontal) {
             n_h = cell.horizontal.length
             w_h = findWords(ltrs, n_h, n_h, cell.horizontal, Array(n_h).fill(null))
             l_h = w_h.map(e=>e.word.slice(cell.null_index.h, cell.null_index.h+1))
-            lp_h = w_h.map((e, i)=>e.joker.indexOf(cell.null_index.h) === -1 ? LETTERS[l_h[i]].pts : 0)
+            l_j_h = w_h.map(e=>e.joker.indexOf(cell.null_index.h) !== -1)
+            lp_h = w_h.map((e, i)=>l_j_h[i] ? 0 : LETTERS[l_h[i]].pts )
+            // lp_h = w_h.map((e, i)=>e.joker.indexOf(cell.null_index.h) === -1 ? LETTERS[l_h[i]].pts : 0)
             p_h = lp_h.map(e=>(e * p.letter_mutliplier + cell.horizontal_fixed_points) * p.word_multiplier)
         }
-        let n_v, w_v, l_v, lp_v, p_v
+        let n_v, w_v, l_v, lp_v, p_v, l_j_v
         if (cell.vertical) {
             n_v = cell.vertical.length
             w_v = findWords(ltrs, n_v, n_v, cell.vertical, Array(n_v).fill(null))
             l_v = w_v.map(e=>e.word.slice(cell.null_index.v, cell.null_index.v+1))
-            lp_v = w_v.map((e, i)=>e.joker.indexOf(cell.null_index.v) === -1 ? LETTERS[l_v[i]].pts : 0)
+            l_j_v = w_v.map(e=>e.joker.indexOf(cell.null_index.v) !== -1)
+            lp_v = w_v.map((e, i)=>l_j_v[i] ? 0 : LETTERS[l_v[i]].pts )
             p_v = lp_v.map(e=>(e * p.letter_mutliplier + cell.vertical_fixed_points) * p.word_multiplier)
+            // if (cell.index === 111) {
+            //     console.log(w_v)
+            //     console.log(l_v)
+            //     console.log(lp_v)
+            //     console.log(p_v)
+            // }
         }
         return {
             index: cell.index,
-            // v: l_v ? unique(l_v) : null,
-            // h: l_h ? unique(l_h) : null,
-            v: l_v ? l_v : null,
-            h: l_h ? l_h : null,
+            v: l_v !==undefined ? l_v : null,
+            h: l_h !==undefined ? l_h : null,
             p,
             p_v,
             p_h,
+            l_j_h,
+            l_j_v,
         }
     })
 }

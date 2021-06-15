@@ -180,18 +180,8 @@ export const buildRowColArray = (letters, byrow=true) => {
 export const removeDuplicatesInObjArray = (arr, keys) => {
     return arr.filter((I, i)=>{
         let res =  arr.slice(i+1, arr.length).filter((J, j) => {
-            // if (i !== (j + i)) {
                 return keys.map(e=>I[e] === J[e]).reduce((p, c)=>p&&c)
-            // }
-            // return false
         })
-        // console.log("-------------------")
-        // console.log(I[keys[0]])
-        // console.log(res)
-        // console.log(res.length === 0)
         return res.length === 0
     })
-    // for (let i = 0; i<arr.length)
 }
-
-// b = ["word", "index", "dir"]
