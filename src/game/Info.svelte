@@ -2,11 +2,24 @@
     import {GameStateStore} from './GameStore'
     import {LETTERS} from "../logic/constants"
     import {getRowColIndex} from "../logic/utils" // FIXME: I should import all helper function: getNiceWordCoord() down below is a duplicate of what is defined in MasterMolangeur.svelte
-    let judgments = ["Parfait! Tu ne peux pas mieux faire!",
-     "Excellent! Tu ne peux pas mieux faire!", 
-     "Juste parfait!",
-     "Parfait! Bravo!",
-     "Parfait!", "Excellent!"]
+    let judgments = [
+        "Le meilleur score possible! Chapeau bas!",
+        "Le meilleur score possible! Chapeau bas!",
+        "Le meilleur score possible! Chapeau bas!",
+        "Le meilleur score possible! Félicitation!",
+        "Le meilleur score possible! Félicitation!",
+        "Le meilleur score possible! Bravo!",
+        "Le meilleur score possible! Bravo!",
+        "Le meilleur score possible! Bravo!",
+        "Le meilleur score possible! Excellent!",
+        "Le meilleur score possible! Parfait!",
+        "Le meilleur score possible! Nickel!",
+        "Le meilleur score possible! Bien joué!",
+        "Le meilleur score possible! Bien joué!",
+        "Le meilleur score possible! Bien joué!",
+        "Le meilleur score possible! Impressionnant!",
+        "Le meilleur score possible! Impressionnant!",
+    ]
     // fetch("./texts.json").then(e=>e.json()).then(e=>{
     //     judgments = e.judgments
     //     console.log(judgments)
@@ -106,8 +119,8 @@
                         // console.log(judgments)
                         judgment = judgments[Math.floor(Math.random() * judgments.length)]
                     }
-                    word = `Ton mot ${$GameStateStore.evaluation.words[0]} te rapporterai ${$GameStateStore.evaluation.score} points.`
-                    action = "Clique sur soumettre pour le jouer"
+                    word = `Le mot ${$GameStateStore.evaluation.words[0]} te rapporterai ${$GameStateStore.evaluation.score} points.`
+                    action = "Clique sur \"Soumettre\" pour le jouer"
                 }
             }
         }
@@ -132,7 +145,7 @@
         </div>
         {#if last_score!=null && last_rank!==null && n_better_words !== null}
              <div class="last-game">
-                Au dernier coup tu as joué <span class="value">{last_word}</span> en position <span class="value">{last_coord}</span> pour un score de <span class="value">{last_score}</span>, 
+                Au dernier coup, tu as joué <span class="value">{last_word}</span> en position <span class="value">{last_coord}</span> pour un score de <span class="value">{last_score}</span>, 
                 {#if last_rank===1}
                 le meilleur score possible.
                 {:else}
@@ -224,11 +237,13 @@
         justify-content: center;
         align-items: center;
         border-top: 1px solid grey;
-        border-bottom: 1px solid grey;
+        /* border-bottom: 1px solid grey; */
         /* background-color: rgb(203, 191, 255); */
-        min-height: 5ch;
+        min-height: 7ch;
     }
     .communication > div {
+        color: hsl(0, 48%, 40%);
+        font-size: 1.05em;
         text-align: center;
     }
 </style>
