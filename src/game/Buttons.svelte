@@ -41,15 +41,16 @@
 <style>
     .action {
         display: flex;
-        justify-content: flex-end;
-        gap: 0.25em;
+        justify-content: space-between;
+        gap: 0.5em;
         height: 4em;
     }
 
     button {
         width: 5em;
         font-size: 1em;
-        padding: 0.125em;
+        padding: 0.25em;
+        width: 100%;
     }
 
     

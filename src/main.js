@@ -1,4 +1,4 @@
-window.console.log = () => {}
+// window.console.log = () => {}
 import App from './App.svelte';
 // import makeDictionnary from "./make_dictionnary"
 import {initMolangeur} from "./logic/molangeur"

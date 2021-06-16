@@ -117,7 +117,7 @@
         </div>
         {#if last_score!=null && last_rank!==null && n_better_words !== null}
              <div class="last-game">
-                Au dernier coup, tu as joué <span class="value">{last_word}</span> en position <span class="value">{last_coord}</span> pour un score de <span class="value">{last_score}</span>, 
+                Précédement, tu as joué <span class="value">{last_word}</span> en position <span class="value">{last_coord}</span> pour un score de <span class="value">{last_score}</span>, 
                 {#if last_rank===1}
                 le meilleur score possible.
                 {:else}
@@ -139,7 +139,7 @@
         {#if !game_over}
         <div>
             {#if molangeur_best}
-                Score maximum au prochain coup: <span class="value">{molangeur_best}</span>
+                Score max au prochain coup: <span class="value">{molangeur_best}</span>
             {/if}
             
         </div>
@@ -180,7 +180,6 @@
         border-radius: 0.25em;
         background-color: var(--xlight-col);
         padding: 0.125em 0.25em;
-        
     }
     .summary-games {
         
@@ -192,6 +191,7 @@
     .last-game {
         border-top: 1px solid grey;
         text-align: center;
+        line-height: 1.2;
     }
     .value {
         font-weight: bold;
@@ -205,6 +205,9 @@
         justify-content: space-between;
         align-items: center;
         gap: 1em;
+        font-size: 0.9em;
+        line-height: 1.2;
+        padding: 0.125em 0.125em;
         /* background-color: rgb(191, 245, 255); */
     }
     .communication {
@@ -214,13 +217,14 @@
         justify-content: center;
         align-items: center;
         border-top: 1px solid grey;
+        
         /* border-bottom: 1px solid grey; */
         /* background-color: rgb(203, 191, 255); */
-        min-height: 7ch;
+        /* min-height: 7ch; */
     }
     .communication > div {
         color: hsl(0, 48%, 40%);
-        font-size: 1.05em;
+        /* font-size: 1.05em; */
         text-align: center;
     }
 </style>

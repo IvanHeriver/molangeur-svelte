@@ -109,8 +109,18 @@
         }
     }
 
+    const preventScrolling = (e)=>{
+            console.log("scroll_attempt")
+            e.preventDefault && e.preventDefault()
+            e.stopImmediatePropagation && e.stopImmediatePropagation();
+            e.stopPropagation && e.stopPropagation();
+    }
 </script>
+{#if free && !grab}
+<div class={"prevent-scroll "+classes} style={styles} on:touchstart={preventScrolling}>
 
+</div>
+{/if}
 <LetterLook 
 letter={is_joker? letter.joker : letter.letter}
 value={LETTERS[letter.letter].pts}
@@ -120,3 +130,33 @@ styles={styles}
 self={self}
 on_mousedown={on_mouse_down_callback}
 />
+
+
+<style>
+    .prevent-scroll {
+        position: absolute;
+        
+        z-index: 0;
+    }
+    .board {
+        /* background-color: rgba(255, 0, 0, 0.425); */
+        background-color: transparent;
+        --F: 1;
+        width: calc(var(--S) * 2);
+        height: calc(var(--S) * 2);
+
+        top: calc(var(--S) * var(--y) - var(--S) * 0.5);
+        left: calc(var(--S) * var(--x) - var(--S) * 0.5);
+    }
+    .rack {
+        /* background-color: rgba(21, 255, 0, 0.425); */
+        background-color: transparent;
+
+        --F: 2;
+        width: calc(var(--S) * 3);
+        height: calc(var(--S) * 2.75);
+
+        top: calc(var(--S) * 15.2  - var(--S) / 2);
+        left: calc((var(--S) * 2.1) * var(--pos) + var(--S) * 0.2 - var(--S) / 2);
+    }
+</style>

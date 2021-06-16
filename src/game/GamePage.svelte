@@ -8,34 +8,56 @@
     import Info from "./Info.svelte"
 
     import {onMount, onDestroy} from "svelte"
+
     let container, game, info, btns, mstm
-    let width = 500
+    $:  width = 500
     let molangeur_height = 500
     // let total_width = 500;
     $: padding = width / 15 / 2;
+    $: width_memory = 0
     const onResize = () => {
         let container_box = container.parentElement.getBoundingClientRect()
         let info_box = info.getBoundingClientRect()
         let btns_box = btns.getBoundingClientRect()
-        let height_available = (container_box.height - (info_box.height + btns_box.height)) * 15 / 17.5
+        let height_available = (container_box.height - (info_box.height + btns_box.height)) * 15 / 16
+        // let height_available = (container_box.height - (info_box.height + btns_box.height)) 
         let width_available = container_box.width
         molangeur_height = 500
         if (document.body.getBoundingClientRect().width > 992) {
-            height_available = (container_box.height - btns_box.height) * 15 / 17.5
+            height_available = (container_box.height - btns_box.height) * 15 / 16
+            // height_available = (container_box.height - btns_box.height) 
             width_available = container_box.width - 300
             molangeur_height = container_box.height - info_box.height
         }
         width = Math.min(height_available, width_available)
-        width = Math.max(350, width)
-        width = width - width / 15      
+       
+        // width = Math.max(350, width)
+        width = width - width / 15
+        width_memory = width
+        width = ((width * window.devicePixelRatio) < 700 ? 700 / window.devicePixelRatio : width)
+        // if ((width * window.devicePixelRatio) < 800) width = 800 / window.devicePixelRatio
+        console.log("******************************************")
+        console.log("container_box", container_box)
+        console.log("info_box", info_box)
+        console.log("btns_box", btns_box)
+        // console.log(window.getComputedStyle(info, null).getPropertyValue('padding-top'))
+        // console.log(window.getComputedStyle(info, null).getPropertyValue('padding-bottom'))
+        // console.log(window.getComputedStyle(btns, null).getPropertyValue('padding-top'))
+        // console.log(window.getComputedStyle(btns, null).getPropertyValue('padding-bottom'))
+        console.log("height_available", height_available)
     }
+    let timeout = null
     const multiOnResize = () => {
         onResize()
-        setTimeout(onResize, 100)
-        setTimeout(onResize, 250)
+        timeout && clearTimeout(timeout)
+        timeout = setTimeout(onResize, 500)
     }
     onMount(()=> {
         window.addEventListener("resize", multiOnResize)
+        container.parentElement.scrollTo(0, 0)
+        console.log(container)
+        console.log(container.parentElement)
+        console.log(container.parentElement.parentElement)
         multiOnResize()
     })
     onDestroy(()=>{
@@ -45,6 +67,13 @@
     setupGame(id)
 </script>
 
+<div style={"position: absolute; top: 0; right: 0; background-color: grey; font-size: 0.8em;"}>
+    {`w: ${width.toFixed(1)} |
+      width: ${width_memory.toFixed(1)} | 
+      width*r: ${(width_memory * window.devicePixelRatio).toFixed(1)} | 
+      r: ${(window.devicePixelRatio).toFixed(1)}
+     `}
+</div>
 <div class="container" style={`--padd: ${padding}px;`} bind:this={container}>
     <!-- <div class="allways-visible">
 
@@ -90,6 +119,10 @@
     }
     .btns {
         padding: 0 calc(var(--padd));
+    }
+    .game {
+        display: flex;
+        justify-content: center;
     }
 
     @media screen and (min-width: 992px) {

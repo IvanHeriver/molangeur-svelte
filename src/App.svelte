@@ -74,13 +74,13 @@ initDatabase(()=>{
     }
     .header-navigation {
         background-color: var(--strong-col);
-        height: 40px;
+        height: 30px;
         width: 100%;
         display: flex;
     }
     .header-navigation > img {
-        width: 200px;
-        height: 40px;
+        width: 150px;
+        height: 30px;
     }
     .navigation-toggle {
         height: 0px;

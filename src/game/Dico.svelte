@@ -45,8 +45,17 @@
 </div>
 
 <style>
+    .container {
+        width: 100%;
+    }
+    .input-div {
+        display: flex;
+        justify-content: center;
+        /* align-items: stretch; */
+        height: 50%;
+    }
     input {
-        width: 8em;
+        width: 100%;
         height: 50%;
         font-size: 1em;
     }
@@ -63,12 +72,7 @@
         color: rgb(168, 0, 0)
     }
 
-    .input-div {
-        display: flex;
-        justify-content: center;
-        /* align-items: stretch; */
-        height: 50%;
-    }
+    
     input {
         height: 4ch;
         border-right: none;
@@ -77,6 +81,7 @@
         width: 100%;
         height: 4ch;
         border-left: none;
+        width: 6ch;
         /* margin: 0; */
         /* flex-grow: 1; */
     }

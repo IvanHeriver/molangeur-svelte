@@ -92,28 +92,23 @@
         }
         
     // askForNewGame();
-    const preventScrolling = (e)=>{
-            console.log("scroll_attempt")
-            e.preventDefault && e.preventDefault()
-            e.stopImmediatePropagation && e.stopImmediatePropagation();
-            e.stopPropagation && e.stopPropagation();
-    }
+
 </script>
 <div class="container" bind:this={container} style={`--REF-SIZE: ${width*15/16}px;--S: ${width/16}px;`}>
     <div class="game" bind:this={game}>
         <div class="board">
             <BoardOverlay game={locationFunctions}/>
             {#each board as e, i}
-                <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}
-                on:touchmove={preventScrolling}
-                >
+                <!-- <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i} on:touchmove={preventScrolling}> -->
+                <div class="board-cell" bind:this={e} style={`--x:${getBoardXY(i).x};--y:${getBoardXY(i).y};`} cid={i}>
                     <!-- <span style='font-size: 0.7em'>{i}</span> -->
                 </div>
             {/each}
         </div>
         <div class="rack" id="rack" bind:this={rack_element} >
             {#each rack as e, i}
-            <div class="rack-cell"  bind:this={e} style={`--pos:${getRackPos(i)};`} cid={i} on:touchstart={preventScrolling}>
+            <!-- <div class="rack-cell"  bind:this={e} style={`--pos:${getRackPos(i)};`} cid={i} on:touchstart={preventScrolling}> -->
+            <div class="rack-cell"  bind:this={e} style={`--pos:${getRackPos(i)};`} cid={i}>
                 <div class="rack-decoration">
 
                 </div>
@@ -147,6 +142,7 @@
         padding: calc(var(--S) / 2);
         padding-bottom: 0;
         user-select: none;
+        
     }
     .game {
         /* outline: 1px solid black; */
@@ -171,6 +167,8 @@
         height: calc(100% * var(--BOARD));
         width: var(--REF-SIZE);
         user-select: none;
+
+        z-index: 0;
     }
     .rack {
         /* outline: 2px solid rgb(0, 132, 255); */
@@ -178,6 +176,8 @@
         height: calc(100% * var(--RACK));
         width: calc(100%);
         user-select: none;
+
+        z-index: 0;
     }
 
 

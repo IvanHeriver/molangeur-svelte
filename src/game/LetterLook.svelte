@@ -62,6 +62,8 @@ cui={id}
         cursor: grab;
 
         background-image: url("../images/tile_medium1.png");
+
+        z-index: 1;
     }
     .free:hover {
         /* background-color: rgb(255, 185, 106); */
