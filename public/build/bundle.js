@@ -705,8 +705,8 @@ var app = (function () {
     };
 
     const LETTERS = {
-        _: {pts: 0, n: 10, vowel: true, consonant: true},
-        // _: {pts: 0, n: 2, vowel: true, consonant: true},
+        // _: {pts: 0, n: 10, vowel: true, consonant: true},
+        _: {pts: 0, n: 2, vowel: true, consonant: true},
         A: {pts: 1, n: 9, vowel: true, consonant: false},
         B: {pts: 3, n: 2, vowel: false, consonant: true},
         C: {pts: 3, n: 2, vowel: false, consonant: true},
@@ -1218,28 +1218,13 @@ var app = (function () {
         //     update_date: Date.now(),
         //     create_date: Date.now(),
         // }
-        let GAME = {
-            bag: createBag(),
-            board: [
-                {id: "222", letter: "A", index: 82, board: true, free: false},
-                {id: "000", letter: "M", index: 97, board: true, free: false},
-                {id: "111", letter: "E", index: 112, board: true, free: false},
-            ],
-            players: [{
-                id: Math.random().toString().slice(2),
-                rack: [],
-                score: 0,
-                molangeur: 0,
-            }],
-            round: 0,
-            type: "solo-duplicate",
-            id: Math.random().toString().slice(2),
-            update_date: Date.now(),
-            create_date: Date.now(),
-        };
         // let GAME = {
         //     bag: createBag(),
-        //     board: [],
+        //     board: [
+        //         {id: "222", letter: "A", index: 82, board: true, free: false},
+        //         {id: "000", letter: "M", index: 97, board: true, free: false},
+        //         {id: "111", letter: "E", index: 112, board: true, free: false},
+        //     ],
         //     players: [{
         //         id: Math.random().toString().slice(2),
         //         rack: [],
@@ -1251,8 +1236,23 @@ var app = (function () {
         //     id: Math.random().toString().slice(2),
         //     update_date: Date.now(),
         //     create_date: Date.now(),
-        //     history: [],
         // }
+        let GAME = {
+            bag: createBag(),
+            board: [],
+            players: [{
+                id: Math.random().toString().slice(2),
+                rack: [],
+                score: 0,
+                molangeur: 0,
+            }],
+            round: 0,
+            type: "solo-duplicate",
+            id: Math.random().toString().slice(2),
+            update_date: Date.now(),
+            create_date: Date.now(),
+            history: [],
+        };
         // draw first letters from bag ...
         const drawing_result = drawLetters(GAME.bag, GAME.players[0].rack, GAME.round);
         // ... and add them to the player's rack

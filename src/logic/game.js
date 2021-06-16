@@ -82,28 +82,13 @@ export const newGame = () => {
     //     update_date: Date.now(),
     //     create_date: Date.now(),
     // }
-    let GAME = {
-        bag: createBag(),
-        board: [
-            {id: "222", letter: "A", index: 82, board: true, free: false},
-            {id: "000", letter: "M", index: 97, board: true, free: false},
-            {id: "111", letter: "E", index: 112, board: true, free: false},
-        ],
-        players: [{
-            id: Math.random().toString().slice(2),
-            rack: [],
-            score: 0,
-            molangeur: 0,
-        }],
-        round: 0,
-        type: "solo-duplicate",
-        id: Math.random().toString().slice(2),
-        update_date: Date.now(),
-        create_date: Date.now(),
-    }
     // let GAME = {
     //     bag: createBag(),
-    //     board: [],
+    //     board: [
+    //         {id: "222", letter: "A", index: 82, board: true, free: false},
+    //         {id: "000", letter: "M", index: 97, board: true, free: false},
+    //         {id: "111", letter: "E", index: 112, board: true, free: false},
+    //     ],
     //     players: [{
     //         id: Math.random().toString().slice(2),
     //         rack: [],
@@ -115,8 +100,23 @@ export const newGame = () => {
     //     id: Math.random().toString().slice(2),
     //     update_date: Date.now(),
     //     create_date: Date.now(),
-    //     history: [],
     // }
+    let GAME = {
+        bag: createBag(),
+        board: [],
+        players: [{
+            id: Math.random().toString().slice(2),
+            rack: [],
+            score: 0,
+            molangeur: 0,
+        }],
+        round: 0,
+        type: "solo-duplicate",
+        id: Math.random().toString().slice(2),
+        update_date: Date.now(),
+        create_date: Date.now(),
+        history: [],
+    }
     // draw first letters from bag ...
     const drawing_result = drawLetters(GAME.bag, GAME.players[0].rack, GAME.round)
     // ... and add them to the player's rack
