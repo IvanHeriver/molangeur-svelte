@@ -6,7 +6,10 @@
     const onDelete = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        ondelete(game.id)
+        const result = confirm("Etes vous sûr de vouloir supprimer la partie?")
+        if (result) {
+            ondelete(game.id)
+        }
     }
     const onDownload = (e) => {
         e.preventDefault();
