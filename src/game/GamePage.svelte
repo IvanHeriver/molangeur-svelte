@@ -36,15 +36,15 @@
         width_memory = width
         width = ((width * window.devicePixelRatio) < 700 ? 700 / window.devicePixelRatio : width)
         // if ((width * window.devicePixelRatio) < 800) width = 800 / window.devicePixelRatio
-        console.log("******************************************")
-        console.log("container_box", container_box)
-        console.log("info_box", info_box)
-        console.log("btns_box", btns_box)
+        // console.log("******************************************")
+        // console.log("container_box", container_box)
+        // console.log("info_box", info_box)
+        // console.log("btns_box", btns_box)
         // console.log(window.getComputedStyle(info, null).getPropertyValue('padding-top'))
         // console.log(window.getComputedStyle(info, null).getPropertyValue('padding-bottom'))
         // console.log(window.getComputedStyle(btns, null).getPropertyValue('padding-top'))
         // console.log(window.getComputedStyle(btns, null).getPropertyValue('padding-bottom'))
-        console.log("height_available", height_available)
+        // console.log("height_available", height_available)
     }
     let timeout = null
     const multiOnResize = () => {
