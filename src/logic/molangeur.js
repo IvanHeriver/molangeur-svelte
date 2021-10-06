@@ -21,7 +21,7 @@ export const initMolangeur = (callback) => {
         const msg = e.data
         if (msg.id && callbacks[msg.id]) {
             callbacks[msg.id](msg.content)
-            if (msg.all_words) console.warn(msg.all_words)
+            if (msg.all_words) console.log("cheating! don't do it! => ", msg.all_words)
             delete callbacks[msg.id]
         }
     })
@@ -84,10 +84,12 @@ export const molangeur = (letters, callback) => {
 }
 
 export const checkBoard = (letters) => {
+    console.log(" ******************* checkBoard ******************** ")
+
     const submitted_letters = letters.filter(e=>e.board && e.free)
     if(submitted_letters.length===0) return false
     console.log("check 0")
-    
+
     // check basic positioning: all free letters and same row or same column
     const row_col = submitted_letters.map(e=>MAPPING.FROM_INDEX[e.index])
     const rows = unique(row_col.map(e=>e.row))
@@ -98,7 +100,7 @@ export const checkBoard = (letters) => {
 
     // sort submitted letters and get words from the first letters
     submitted_letters.sort((a, b) => a.index - b.index)
-    const letters_arr = buildBoardIndexArray(letters)
+    const letters_arr = buildBoardIndexArray(letters.filter(l=>l.board))
     const words_from_first_letter = [
         findVerticalAndHorizontalWordsFromIndex(letters_arr, submitted_letters[0], "h"), 
         findVerticalAndHorizontalWordsFromIndex(letters_arr, submitted_letters[0], "v"), 
@@ -138,6 +140,7 @@ export const checkBoard = (letters) => {
         if (submitted_letters.filter(e=>e.index === 112).length === 0) return false 
     }
     console.log("check 4")
+
     // check the words validity
     const words = all_words.map(e=>e.map(l=>l.letter).reduce((a, b)=>a+b))
     const validities = words.map(e=>checkWord(e))
