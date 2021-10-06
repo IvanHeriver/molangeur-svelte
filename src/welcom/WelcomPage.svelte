@@ -1,6 +1,6 @@
 <script>
     import Game from "./Game.svelte"
-    import {getAllGames, deleteGame} from "../logic/DB"
+    import {getAllGames, deleteGame, addGame} from "../logic/DB"
     // import {getGameList} from "../logic/game"
 
     export let launchGame;
@@ -15,6 +15,31 @@
         getAllGames((list) => {
             game_list = [...list.sort((a,b)=>b.update_date - a.update_date)]
         })
+    }
+    const importGame = () => {
+        const i = document.createElement("input");
+        i.type = "file";
+        i.accept = ".molangeur";
+        i.multiple = false;
+        i.addEventListener("change", function() {
+            const f = this.files[0]
+            const reader = new FileReader()
+            reader.readAsText(f)
+            reader.onload = () => {
+                const str = reader.result
+                const game = JSON.parse(str)
+                console.log(game)
+                // change the id to prevent conflict
+                game.id = Math.random().toString().slice(2) 
+                addGame(game, ()=>{
+                    getGameList()
+                })
+            }
+            reader.onerror = () => {
+                console.error("An error occured while reading the file...")
+            }
+        });
+        i.click()
     }
     $: game_list = []
     getGameList()
@@ -34,10 +59,10 @@
     </div>
     <div class="new-games">
         <button on:click={launchGame(null)}>
-            Nouvelle Partie Solo (Duplicate)
+            Nouvelle Partie
         </button>
-        <button disabled>
-            Nouvelle Partie Solo (Classique)
+        <button on:click={importGame}>
+            Importer une partie
         </button>
     </div>
     <div class="game-list-header">

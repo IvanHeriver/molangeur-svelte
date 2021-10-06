@@ -8,6 +8,18 @@
         e.stopPropagation();
         ondelete(game.id)
     }
+    const onDownload = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        let file_name = getDate(game.create_date)+"t"+getTime(game.create_date)+"_"+getDate(game.update_date)+"t"+getTime(game.update_date)
+        file_name = file_name.replace(/\//g,  "")
+        file_name = file_name.replace(/\:/g, "")
+        const file = new File([JSON.stringify(game)], file_name, {type: "text/plain"})
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(file);
+        a.download = file.name+".molangeur";
+        a.click();  
+    }
     const getDate = (x) => {
         let d = new Date(x)
         return d.toLocaleDateString()
@@ -31,6 +43,9 @@
         <div class="secondary">
            <button class="simple" on:click={onDelete}>
                Supprimer
+           </button>
+           <button class="simple" on:click={onDownload}>
+               Télécharger
            </button>
         </div>
     </div>
@@ -74,7 +89,11 @@
         align-items: flex-start;
         border-bottom: 1px solid grey;
     }
-
+    .secondary {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
     .bold {
         font-weight: bold;
     }

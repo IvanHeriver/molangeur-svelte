@@ -16,12 +16,13 @@ export const initDatabase = (callback) => {
         callback()
     })
 }
-export const addGame = (game) => {
+export const addGame = (game, callback=()=>{}) => {
     let transaction = DB.transaction("games", "readwrite")
     let games = transaction.objectStore("games")
     let request = games.add(game)
     request.addEventListener("success", () => {
         console.log("DB game added")
+        callback()
     })
     request.addEventListener("error", () => {
         console.error("DB Error: ", request.error)
@@ -46,7 +47,7 @@ export const getGame = (id, callback) => {
     })
 }
 export const getAllGames = (callback) => {
-    let request = DB.transaction("games", "readonly").objectStore("games").getAll()    
+    let request = DB.transaction("games", "readonly").objectStore("games").getAll()
     request.addEventListener("success", () => {
         console.log("DB games retrieved")
         callback(request.result)
