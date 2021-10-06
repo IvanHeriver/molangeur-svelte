@@ -19,18 +19,32 @@
         //     dictionnary_valid_word = undefined
         // }
     }
+
+    let classes = ""
+    $: {
+        if (dictionnary_valid_word !== null && !dictionnary_valid_word) {
+            classes = "invalid"
+        } else if (dictionnary_valid_word) {
+            classes = "valid"
+        } else {
+            classes = ""
+        }
+        console.log(dictionnary_valid_word)
+        console.log(classes)
+    }
+
 </script>
 
 <div class="container">
     <div class="input-div">
-        <input type="text" placeholder="Dictionnaire" bind:value={word_to_check} on:keyup={checkWordValidity} onkeypress="return (event.key.length === 1 && /[A-Za-zéèëêîïûôâàç]/.test(event.key))">
+        <input type="text" class={classes} placeholder="Dictionnaire" bind:value={word_to_check} on:keyup={checkWordValidity} onkeypress="return (event.key.length === 1 && /[A-Za-zéèëêîïûôâàç]/.test(event.key))">
         <button class="reset-input" on:click={()=>{{
             word_to_check=""
             dictionnary_valid_word=null
             }}}>x</button>
     </div>
     
-    {#if dictionnary_valid_word === null }
+    <!-- {#if dictionnary_valid_word === null }
         {""}
     {:else if dictionnary_valid_word}
         <div class="result valid">
@@ -40,7 +54,7 @@
         <div class="result invalid">
             Mot non valide
         </div>
-    {/if}
+    {/if} -->
     
 </div>
 
@@ -58,6 +72,7 @@
         width: 100%;
         height: 50%;
         font-size: 1em;
+        background-color: white;
     }
     .result {
         text-align: center;
@@ -65,11 +80,18 @@
         padding-top: 0.25em;
     }
 
-    .valid {
+    /* .valid {
         color: green;
     }
     .invalid {
         color: rgb(168, 0, 0)
+    } */
+
+    .valid {
+        background-color: rgba(0, 128, 0, 0.25);
+    }
+    .invalid {
+        background-color: rgba(168, 0, 0, 0.25)
     }
 
     

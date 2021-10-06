@@ -67,13 +67,13 @@
     setupGame(id)
 </script>
 
-<div style={"position: absolute; top: 0; right: 0; background-color: grey; font-size: 0.8em;"}>
+<!-- <div style={"position: absolute; top: 0; right: 0; background-color: grey; font-size: 0.8em;"}>
     {`w: ${width.toFixed(1)} |
       width: ${width_memory.toFixed(1)} | 
       width*r: ${(width_memory * window.devicePixelRatio).toFixed(1)} | 
       r: ${(window.devicePixelRatio).toFixed(1)}
      `}
-</div>
+</div> -->
 <div class="container" style={`--padd: ${padding}px;`} bind:this={container}>
     <!-- <div class="allways-visible">
 
